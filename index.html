@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>스캔라인</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root{
+    --bg:#0c0d10; --surface:#171a20; --surface2:#21252d; --line:#2e3340;
+    --amber:#ffb92b; --amber-ink:#22170a; --text:#f0f1f4; --dim:#8b92a3; --danger:#ff6b5e;
+    --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;background:#000;color:var(--text);
+    font-family:'Manrope',system-ui,-apple-system,sans-serif;overflow:hidden;overscroll-behavior:none;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  button{font-family:inherit;}
+
+  .screen{position:fixed;inset:0;display:none;flex-direction:column;background:var(--bg);}
+  .screen.active{display:flex;}
+
+  /* ===== camera ===== */
+  #screen-cam{background:#000;}
+  #camStage{flex:1;position:relative;overflow:hidden;background:#000;}
+  #video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;}
+  #overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+  .camTop{position:absolute;top:0;left:0;right:0;padding:calc(var(--sat) + 12px) 14px 12px;
+    display:flex;justify-content:space-between;align-items:center;
+    background:linear-gradient(180deg,rgba(0,0,0,.55),transparent);z-index:3;}
+  .chip{appearance:none;border:1px solid rgba(255,255,255,.22);background:rgba(20,22,28,.55);
+    color:#fff;border-radius:999px;padding:8px 14px;font-size:13px;font-weight:700;
+    display:inline-flex;align-items:center;gap:7px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);cursor:pointer;}
+  .chip.on{background:var(--amber);border-color:var(--amber);color:var(--amber-ink);}
+  .chip .dot{width:8px;height:8px;border-radius:50%;background:currentColor;opacity:.9;}
+  .camTopGroup{display:flex;gap:8px;}
+  #hint{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:3;
+    background:rgba(15,17,22,.72);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    border:1px solid rgba(255,255,255,.14);color:#fff;font-size:13px;font-weight:600;
+    padding:9px 16px;border-radius:999px;white-space:nowrap;overflow:hidden;min-width:210px;text-align:center;}
+  #hint .bar{position:absolute;left:0;bottom:0;height:3px;background:var(--amber);width:0;transition:width .12s linear;}
+  #hint.found{border-color:rgba(255,185,43,.6);}
+  .camBottom{height:calc(116px + var(--sab));padding:0 22px var(--sab);background:#000;
+    display:flex;align-items:center;justify-content:space-between;}
+  .sideBtn{width:60px;height:60px;border-radius:14px;background:var(--surface2);border:1px solid var(--line);
+    color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden;padding:0;}
+  .sideBtn img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;}
+  .sideBtn .badge{position:absolute;right:-2px;top:-2px;background:var(--amber);color:var(--amber-ink);
+    font-family:'IBM Plex Mono';font-weight:600;font-size:11px;min-width:20px;height:20px;border-radius:10px;
+    display:flex;align-items:center;justify-content:center;padding:0 5px;z-index:2;}
+  .shutter{width:78px;height:78px;border-radius:50%;border:4px solid #fff;background:transparent;padding:5px;cursor:pointer;}
+  .shutter i{display:block;width:100%;height:100%;border-radius:50%;background:#fff;transition:transform .1s;}
+  .shutter:active i{transform:scale(.88);}
+  #flashFx{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:5;}
+  #flashFx.go{animation:fl .28s ease-out;}
+  @keyframes fl{0%{opacity:.85}100%{opacity:0}}
+  #camFallback{position:absolute;inset:0;z-index:4;background:var(--bg);display:none;flex-direction:column;
+    align-items:center;justify-content:center;gap:14px;padding:28px;text-align:center;}
+  #camFallback.show{display:flex;}
+  #camFallback h2{margin:0;font-size:18px;}
+  #camFallback p{margin:0;color:var(--dim);font-size:13.5px;line-height:1.6;max-width:320px;}
+
+  /* ===== common ===== */
+  .topbar{padding:calc(var(--sat) + 10px) 14px 10px;display:flex;align-items:center;justify-content:space-between;
+    border-bottom:1px solid var(--line);background:var(--bg);min-height:56px;}
+  .topbar .title{font-weight:800;font-size:16px;letter-spacing:-.01em;}
+  .iconBtn{appearance:none;background:transparent;border:none;color:var(--text);font-size:14px;font-weight:700;
+    padding:8px 6px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;min-width:64px;}
+  .iconBtn.right{justify-content:flex-end;}
+  .btn{appearance:none;border:none;border-radius:12px;padding:14px 18px;font-size:15px;font-weight:800;cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;letter-spacing:-.01em;transition:transform .1s;}
+  .btn:active{transform:scale(.97);}
+  .btn.primary{background:var(--amber);color:var(--amber-ink);}
+  .btn.ghost{background:var(--surface2);color:var(--text);border:1px solid var(--line);}
+  .btn.block{width:100%;}
+  .btn.sm{padding:11px 14px;font-size:13.5px;}
+  .btn[disabled]{opacity:.4;pointer-events:none;}
+  .secLabel{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase;}
+
+  /* ===== result ===== */
+  #resWrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:14px;position:relative;
+    background:radial-gradient(circle at 50% 40%,#1a1d24,#0c0d10);}
+  #resCanvas{max-width:100%;max-height:100%;box-shadow:0 8px 40px rgba(0,0,0,.6);background:#fff;}
+  #busy{position:absolute;inset:0;background:rgba(12,13,16,.7);display:none;align-items:center;justify-content:center;
+    flex-direction:column;gap:12px;z-index:4;font-weight:700;font-size:14px;}
+  #busy.show{display:flex;}
+  .spin{width:30px;height:30px;border:3px solid var(--line);border-top-color:var(--amber);border-radius:50%;animation:sp .7s linear infinite;}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .filtersRow{display:flex;gap:12px;overflow-x:auto;padding:12px 14px 6px;background:var(--bg);border-top:1px solid var(--line);}
+  .fopt{flex:0 0 auto;width:70px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;opacity:.55;}
+  .fopt.active{opacity:1;}
+  .fopt canvas{width:100%;height:60px;object-fit:cover;border-radius:8px;border:2px solid transparent;background:#fff;}
+  .fopt.active canvas{border-color:var(--amber);}
+  .fopt span{font-size:11px;font-weight:700;}
+  .toolsRow{display:flex;justify-content:space-around;padding:6px 10px 4px;background:var(--bg);}
+  .tool{appearance:none;background:none;border:none;color:var(--text);font-size:12px;font-weight:700;display:flex;
+    flex-direction:column;align-items:center;gap:5px;padding:8px 14px;cursor:pointer;}
+  .tool svg{width:22px;height:22px;}
+  .bottomActs{display:flex;gap:10px;padding:8px 14px calc(14px + var(--sab));background:var(--bg);}
+  .bottomActs .btn{flex:1;}
+
+  /* ===== crop ===== */
+  #cropWrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:14px;background:#000;touch-action:none;}
+  #cropStage{position:relative;max-width:100%;max-height:100%;line-height:0;touch-action:none;}
+  #cropStage canvas{max-width:100%;max-height:calc(100vh - 220px);display:block;}
+  #cropSvg{position:absolute;inset:0;width:100%;height:100%;touch-action:none;}
+  .quadFill{fill:rgba(255,185,43,.16);stroke:var(--amber);stroke-width:3;vector-effect:non-scaling-stroke;}
+  .hv{fill:var(--amber);stroke:#22170a;stroke-width:3;vector-effect:non-scaling-stroke;}
+  .hit{fill:transparent;cursor:grab;}
+
+  /* ===== pages ===== */
+  #pagesGrid{flex:1;overflow-y:auto;padding:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;align-content:start;}
+  .pcard{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface);}
+  .pcard img{width:100%;aspect-ratio:3/4;object-fit:contain;background:#fff;display:block;}
+  .pcard .n{position:absolute;left:6px;top:6px;background:rgba(0,0,0,.65);font-family:'IBM Plex Mono';font-size:11px;padding:2px 7px;border-radius:5px;}
+  .pcard .x{position:absolute;right:6px;top:6px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.7);
+    color:var(--danger);border:none;font-size:15px;cursor:pointer;line-height:1;}
+  .pcard .mv{display:flex;border-top:1px solid var(--line);}
+  .pcard .mv button{flex:1;background:var(--surface2);border:none;color:var(--text);padding:8px 0;font-size:13px;cursor:pointer;}
+  .pcard .mv button+button{border-left:1px solid var(--line);}
+  .emptyPages{grid-column:1/-1;text-align:center;color:var(--dim);padding:60px 20px;font-size:14px;line-height:1.7;}
+  .exportBar{padding:12px 14px calc(14px + var(--sab));background:var(--surface);border-top:1px solid var(--line);display:flex;flex-direction:column;gap:10px;}
+  .exportBtns{display:flex;gap:8px;}
+  .exportBtns .btn{flex:1;}
+
+  #toast{position:fixed;left:50%;top:calc(var(--sat) + 70px);transform:translateX(-50%) translateY(-8px);background:rgba(33,37,45,.96);
+    border:1px solid var(--line);padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;
+    transition:.2s;z-index:99;max-width:88vw;text-align:center;}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  input[type=file]{display:none;}
+</style>
+</head>
+<body>
+
+<!-- ============ CAMERA ============ -->
+<section id="screen-cam" class="screen active">
+  <div id="camStage">
+    <video id="video" playsinline muted autoplay></video>
+    <canvas id="overlay"></canvas>
+    <div id="flashFx"></div>
+    <div class="camTop">
+      <button class="chip on" id="autoBtn"><span class="dot"></span><span id="autoLabel">자동 촬영</span></button>
+      <div class="camTopGroup">
+        <button class="chip" id="torchBtn" style="display:none">⚡ 플래시</button>
+      </div>
+    </div>
+    <div id="hint">문서를 화면에 비춰주세요<div class="bar" id="hintBar"></div></div>
+    <div id="camFallback">
+      <h2>실시간 카메라를 쓸 수 없어요</h2>
+      <p id="fbMsg">브라우저에서 카메라 권한이 거부됐거나, 보안 연결(https)이 아니에요. 아래 버튼으로 카메라 앱에서 촬영해도 자동으로 문서를 인식해요.</p>
+      <button class="btn primary" id="fbCapture">📷 카메라 앱으로 촬영</button>
+      <button class="btn ghost" id="fbRetry">카메라 다시 시도</button>
+    </div>
+  </div>
+  <div class="camBottom">
+    <button class="sideBtn" id="galleryBtn" aria-label="갤러리">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 8"/></svg>
+    </button>
+    <button class="shutter" id="shutterBtn" aria-label="촬영"><i></i></button>
+    <button class="sideBtn" id="doneBtn" aria-label="완료">
+      <img id="lastThumb" alt="" style="display:none">
+      <span id="doneEmpty" style="font-size:12px;font-weight:700;color:var(--dim)">완료</span>
+      <span class="badge" id="camBadge" style="display:none">0</span>
+    </button>
+  </div>
+</section>
+
+<!-- ============ RESULT ============ -->
+<section id="screen-res" class="screen">
+  <div class="topbar">
+    <button class="iconBtn" id="resBack">← 다시 찍기</button>
+    <div class="title">스캔 결과</div>
+    <span style="min-width:64px"></span>
+  </div>
+  <div id="resWrap">
+    <canvas id="resCanvas"></canvas>
+    <div id="busy"><div class="spin"></div><div>문서를 보정하는 중…</div></div>
+  </div>
+  <div class="toolsRow">
+    <button class="tool" id="toolCrop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14"/></svg>크롭 조정</button>
+    <button class="tool" id="toolRotL"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>왼쪽 회전</button>
+    <button class="tool" id="toolRotR"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>오른쪽 회전</button>
+  </div>
+  <div class="filtersRow" id="filtersRow"></div>
+  <div class="bottomActs">
+    <button class="btn ghost" id="addNext">＋ 다음 장</button>
+    <button class="btn primary" id="finishBtn">완료 · 저장</button>
+  </div>
+</section>
+
+<!-- ============ CROP ============ -->
+<section id="screen-crop" class="screen">
+  <div class="topbar">
+    <button class="iconBtn" id="cropCancel">취소</button>
+    <div class="title">모서리 조정</div>
+    <button class="iconBtn right" id="cropAuto" style="color:var(--amber)">자동 인식</button>
+  </div>
+  <div id="cropWrap"><div id="cropStage"><canvas id="cropCanvas"></canvas><svg id="cropSvg"></svg></div></div>
+  <div class="bottomActs">
+    <button class="btn ghost" id="cropFull">전체 프레임</button>
+    <button class="btn primary" id="cropOk">적용</button>
+  </div>
+</section>
+
+<!-- ============ PAGES / EXPORT ============ -->
+<section id="screen-pages" class="screen">
+  <div class="topbar">
+    <button class="iconBtn" id="pagesBack">← 스캔</button>
+    <div class="title">저장 <span class="mono" style="color:var(--dim);font-size:12px" id="pagesCount"></span></div>
+    <span style="min-width:64px"></span>
+  </div>
+  <div id="pagesGrid"></div>
+  <div class="exportBar">
+    <div class="secLabel">내보내기 형식</div>
+    <div class="exportBtns">
+      <button class="btn primary sm" id="expPdf">PDF</button>
+      <button class="btn ghost sm" id="expJpg">JPG</button>
+      <button class="btn ghost sm" id="expPng">PNG</button>
+    </div>
+    <button class="btn ghost sm block" id="pagesMore">＋ 더 스캔하기</button>
+  </div>
+</section>
+
+<div id="toast"></div>
+<input type="file" id="inCapture" accept="image/*" capture="environment">
+<input type="file" id="inGallery" accept="image/*" multiple>
+
+<script>
+/* =====================================================================
+   Document detection (pure functions, no DOM)
+   ===================================================================== */
+//#DET-START
+function boxBlur(src,w,h,r){
+  const tmp=new Float32Array(w*h), out=new Uint8Array(w*h), k=2*r+1;
+  for(let y=0;y<h;y++){
+    const row=y*w; let sum=0;
+    for(let x=-r;x<=r;x++) sum+=src[row+Math.min(w-1,Math.max(0,x))];
+    for(let x=0;x<w;x++){
+      tmp[row+x]=sum/k;
+      sum+=src[row+Math.min(w-1,x+r+1)]-src[row+Math.max(0,x-r)];
+    }
+  }
+  for(let x=0;x<w;x++){
+    let sum=0;
+    for(let y=-r;y<=r;y++) sum+=tmp[Math.min(h-1,Math.max(0,y))*w+x];
+    for(let y=0;y<h;y++){
+      out[y*w+x]=sum/k;
+      sum+=tmp[Math.min(h-1,y+r+1)*w+x]-tmp[Math.max(0,y-r)*w+x];
+    }
+  }
+  return out;
+}
+function maxFilter(src,w,h,r){
+  const tmp=new Uint8Array(w*h), out=new Uint8Array(w*h);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    let m=0; const a=Math.max(0,x-r), b=Math.min(w-1,x+r);
+    for(let i=a;i<=b;i++){ const v=src[y*w+i]; if(v>m)m=v; }
+    tmp[y*w+x]=m;
+  }
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    let m=0; const a=Math.max(0,y-r), b=Math.min(h-1,y+r);
+    for(let j=a;j<=b;j++){ const v=tmp[j*w+x]; if(v>m)m=v; }
+    out[y*w+x]=m;
+  }
+  return out;
+}
+function otsu(gray){
+  const hist=new Array(256).fill(0);
+  for(let i=0;i<gray.length;i++) hist[gray[i]]++;
+  const total=gray.length; let sum=0;
+  for(let i=0;i<256;i++) sum+=i*hist[i];
+  let sumB=0,wB=0,best=0,thr=128;
+  for(let t=0;t<256;t++){
+    wB+=hist[t]; if(!wB) continue;
+    const wF=total-wB; if(!wF) break;
+    sumB+=t*hist[t];
+    const mB=sumB/wB, mF=(sum-sumB)/wF;
+    const v=wB*wF*(mB-mF)*(mB-mF);
+    if(v>best){best=v;thr=t;}
+  }
+  return thr;
+}
+function polyArea(p){
+  let a=0;
+  for(let i=0;i<p.length;i++){const q=p[(i+1)%p.length];a+=p[i][0]*q[1]-q[0]*p[i][1];}
+  return Math.abs(a)/2;
+}
+function orderQuad(q){
+  const cx=q.reduce((s,p)=>s+p[0],0)/4, cy=q.reduce((s,p)=>s+p[1],0)/4;
+  const s=q.slice().sort((a,b)=>Math.atan2(a[1]-cy,a[0]-cx)-Math.atan2(b[1]-cy,b[0]-cx));
+  // rotate so first = top-left (min x+y)
+  let k=0,m=1e18;
+  for(let i=0;i<4;i++){const v=s[i][0]+s[i][1]; if(v<m){m=v;k=i;}}
+  return [s[k],s[(k+1)%4],s[(k+2)%4],s[(k+3)%4]];
+}
+function quadFromPoints(pts){ // pts: flat [x,y,x,y...]
+  let best=null,bestA=0;
+  const n=pts.length/2;
+  for(let deg=0;deg<90;deg+=10){
+    const sel=[];
+    for(let k=0;k<4;k++){
+      const a=(deg+45+k*90)*Math.PI/180, dx=Math.cos(a), dy=Math.sin(a);
+      let bi=0,bv=-1e18;
+      for(let i=0;i<n;i++){const v=pts[2*i]*dx+pts[2*i+1]*dy; if(v>bv){bv=v;bi=i;}}
+      sel.push([pts[2*bi],pts[2*bi+1]]);
+    }
+    const A=polyArea(sel);
+    if(A>bestA){bestA=A;best=sel;}
+  }
+  if(!best) return null;
+  return {q:orderQuad(best),area:bestA};
+}
+function quadOk(q,w,h){
+  // convex + angles + min side
+  let sign=0;
+  for(let i=0;i<4;i++){
+    const a=q[i],b=q[(i+1)%4],c=q[(i+2)%4];
+    const cr=(b[0]-a[0])*(c[1]-b[1])-(b[1]-a[1])*(c[0]-b[0]);
+    if(cr===0) return false;
+    const s=cr>0?1:-1;
+    if(sign&&s!==sign) return false;
+    sign=s;
+    const v1=[a[0]-b[0],a[1]-b[1]], v2=[c[0]-b[0],c[1]-b[1]];
+    const cos=(v1[0]*v2[0]+v1[1]*v2[1])/(Math.hypot(...v1)*Math.hypot(...v2)+1e-9);
+    const ang=Math.acos(Math.max(-1,Math.min(1,cos)))*180/Math.PI;
+    if(ang<50||ang>130) return false;
+    if(Math.hypot(b[0]-a[0],b[1]-a[1])<Math.min(w,h)*0.18) return false;
+  }
+  return true;
+}
+function findBestQuad(mask,w,h,weight){
+  const N=w*h, lab=new Int32Array(N), stack=new Int32Array(N);
+  let best=null,bestScore=0,id=0;
+  for(let i=0;i<N;i++){
+    if(!mask[i]||lab[i]) continue;
+    id++; let sp=0; stack[sp++]=i; lab[i]=id;
+    const pts=[]; let area=0;
+    while(sp){
+      const p=stack[--sp]; area++;
+      const x=p%w, y=(p/w)|0; let edge=false;
+      if(x>0){const q=p-1; if(mask[q]){if(!lab[q]){lab[q]=id;stack[sp++]=q;}} else edge=true;} else edge=true;
+      if(x<w-1){const q=p+1; if(mask[q]){if(!lab[q]){lab[q]=id;stack[sp++]=q;}} else edge=true;} else edge=true;
+      if(y>0){const q=p-w; if(mask[q]){if(!lab[q]){lab[q]=id;stack[sp++]=q;}} else edge=true;} else edge=true;
+      if(y<h-1){const q=p+w; if(mask[q]){if(!lab[q]){lab[q]=id;stack[sp++]=q;}} else edge=true;} else edge=true;
+      if(edge) pts.push(x,y);
+    }
+    if(area<N*0.08) continue;
+    const r=quadFromPoints(pts);
+    if(!r) continue;
+    const qa=r.area/N;
+    if(qa<0.1||qa>0.93) continue;
+    const ratio=area/r.area;
+    if(ratio<0.72||ratio>1.3) continue;
+    if(!quadOk(r.q,w,h)) continue;
+    const score=r.area*(1-Math.min(1,Math.abs(1-ratio)))*weight;
+    if(score>bestScore){bestScore=score;best=r.q;}
+  }
+  return best?{q:best,score:bestScore}:null;
+}
+// gray: Uint8Array(w*h) -> quad [[x,y]x4] in (w,h) coords or null
+function detectFromGray(gray,w,h){
+  const bl=boxBlur(gray,w,h,2);
+  const t=otsu(bl), N=w*h;
+  const bright=new Uint8Array(N), dark=new Uint8Array(N);
+  for(let i=0;i<N;i++){ if(bl[i]>t) bright[i]=1; else dark[i]=1; }
+  const a=findBestQuad(bright,w,h,1.0);
+  const b=findBestQuad(dark,w,h,0.8);
+  const pick=(a&&b)?(a.score>=b.score?a:b):(a||b);
+  return pick?pick.q:null;
+}
+//#DET-END
+
+/* =====================================================================
+   App
+   ===================================================================== */
+const $=id=>document.getElementById(id);
+const video=$('video'), overlay=$('overlay'), octx=overlay.getContext('2d');
+const detCv=document.createElement('canvas'), detCtx=detCv.getContext('2d',{willReadFrequently:true});
+
+const S={
+  pages:[], cur:null, queue:[], stream:null, camOn:false,
+  auto:true, torch:false, track:null, miss:0, stable:0, lastDet:0, cooldown:0,
+};
+const STABLE_NEED=9;
+
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),2000);}
+function show(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  $('screen-'+name).classList.add('active');
+  if(name==='cam') startCamera(); else stopCamera();
+}
+const nextFrame=()=>new Promise(r=>requestAnimationFrame(()=>setTimeout(r,16)));
+
+/* ---------- detection wrapper ---------- */
+function detect(src,sw,sh){
+  const s=240/Math.max(sw,sh);
+  const w=Math.max(16,Math.round(sw*s)), h=Math.max(16,Math.round(sh*s));
+  detCv.width=w; detCv.height=h;
+  detCtx.drawImage(src,0,0,w,h);
+  const d=detCtx.getImageData(0,0,w,h).data;
+  const g=new Uint8Array(w*h);
+  for(let i=0,j=0;i<g.length;i++,j+=4) g[i]=(d[j]*77+d[j+1]*150+d[j+2]*29)>>8;
+  const q=detectFromGray(g,w,h);
+  return q?q.map(p=>[p[0]/s,p[1]/s]):null;
+}
+function defaultCorners(w,h){
+  const m=0.06;
+  return [[w*m,h*m],[w*(1-m),h*m],[w*(1-m),h*(1-m)],[w*m,h*(1-m)]];
+}
+
+/* ---------- camera ---------- */
+async function startCamera(){
+  if(S.camOn) return;
+  $('camFallback').classList.remove('show');
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    $('fbMsg').textContent='이 환경에서는 실시간 카메라를 사용할 수 없어요(https 연결 필요). 아래 버튼으로 카메라 앱에서 촬영해도 자동으로 문서를 인식해요.';
+    $('camFallback').classList.add('show'); return;
+  }
+  try{
+    S.stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});
+  }catch(e){
+    $('fbMsg').textContent='카메라 권한이 거부됐거나 사용할 수 없어요. 브라우저 설정에서 카메라를 허용하거나, 아래 버튼으로 카메라 앱에서 촬영해 주세요.';
+    $('camFallback').classList.add('show'); return;
+  }
+  video.srcObject=S.stream;
+  try{await video.play();}catch(e){}
+  S.camOn=true; S.track=null; S.miss=0; S.stable=0; S.cooldown=performance.now()+700;
+  const tr=S.stream.getVideoTracks()[0];
+  try{
+    const caps=tr.getCapabilities?tr.getCapabilities():{};
+    $('torchBtn').style.display=caps.torch?'':'none';
+    if(caps.focusMode&&caps.focusMode.includes('continuous')) tr.applyConstraints({advanced:[{focusMode:'continuous'}]}).catch(()=>{});
+  }catch(e){}
+  S.torch=false; $('torchBtn').classList.remove('on');
+  requestAnimationFrame(loop);
+}
+function stopCamera(){
+  S.camOn=false;
+  if(S.stream){S.stream.getTracks().forEach(t=>t.stop());S.stream=null;}
+  video.srcObject=null;
+}
+function mapInfo(){
+  const cw=overlay.clientWidth, ch=overlay.clientHeight, vw=video.videoWidth||1, vh=video.videoHeight||1;
+  const sc=Math.min(cw/vw,ch/vh);
+  return {sc,ox:(cw-vw*sc)/2,oy:(ch-vh*sc)/2,cw,ch};
+}
+function loop(now){
+  if(!S.camOn) return;
+  now=now||performance.now();
+  if(video.readyState>=2&&video.videoWidth){
+    if(now-S.lastDet>120){
+      S.lastDet=now;
+      track(detect(video,video.videoWidth,video.videoHeight));
+    }
+    drawOverlay();
+    if(S.auto&&S.stable>=STABLE_NEED&&now>S.cooldown){
+      S.cooldown=now+2000; shoot(true);
+    }
+  }
+  requestAnimationFrame(loop);
+}
+function track(c){
+  if(!c){
+    S.miss++;
+    if(S.miss>4){S.track=null;S.stable=0;}
+    return;
+  }
+  S.miss=0;
+  if(!S.track){S.track=c;S.stable=0;return;}
+  const diag=Math.hypot(video.videoWidth,video.videoHeight);
+  let md=0;
+  for(let i=0;i<4;i++) md=Math.max(md,Math.hypot(c[i][0]-S.track[i][0],c[i][1]-S.track[i][1]));
+  const d=md/diag;
+  if(d>0.12){S.track=c;S.stable=0;return;}
+  S.track=S.track.map((p,i)=>[p[0]+(c[i][0]-p[0])*0.5,p[1]+(c[i][1]-p[1])*0.5]);
+  if(d<0.012) S.stable++; else S.stable=Math.max(0,S.stable-2);
+}
+function drawOverlay(){
+  const dpr=window.devicePixelRatio||1, cw=overlay.clientWidth, ch=overlay.clientHeight;
+  if(overlay.width!==Math.round(cw*dpr)||overlay.height!==Math.round(ch*dpr)){
+    overlay.width=Math.round(cw*dpr); overlay.height=Math.round(ch*dpr);
+  }
+  octx.setTransform(dpr,0,0,dpr,0,0);
+  octx.clearRect(0,0,cw,ch);
+  const hint=$('hint'), bar=$('hintBar');
+  if(!S.track){
+    hint.classList.remove('found'); bar.style.width='0';
+    hint.firstChild.nodeValue='문서를 화면에 비춰주세요';
+    return;
+  }
+  const m=mapInfo();
+  const pts=S.track.map(p=>[m.ox+p[0]*m.sc,m.oy+p[1]*m.sc]);
+  const prog=Math.min(1,S.stable/STABLE_NEED);
+  octx.beginPath();
+  pts.forEach((p,i)=>i?octx.lineTo(p[0],p[1]):octx.moveTo(p[0],p[1]));
+  octx.closePath();
+  octx.fillStyle=`rgba(255,185,43,${0.14+prog*0.14})`; octx.fill();
+  octx.lineWidth=3; octx.lineJoin='round';
+  octx.strokeStyle=prog>=1?'#ffffff':'#ffb92b'; octx.stroke();
+  pts.forEach(p=>{octx.beginPath();octx.arc(p[0],p[1],7,0,7);octx.fillStyle='#ffb92b';octx.fill();
+    octx.lineWidth=2;octx.strokeStyle='#22170a';octx.stroke();});
+  hint.classList.add('found');
+  hint.firstChild.nodeValue=S.auto?(prog>=1?'촬영 중…':'문서 감지됨 · 가만히 유지하세요'):'문서 감지됨 · 셔터를 누르세요';
+  bar.style.width=S.auto?(prog*100)+'%':'0';
+}
+function shoot(auto){
+  if(!S.camOn||!video.videoWidth) return;
+  const w=video.videoWidth,h=video.videoHeight;
+  const cv=document.createElement('canvas'); cv.width=w;cv.height=h;
+  cv.getContext('2d').drawImage(video,0,0,w,h);
+  let corners=S.track?S.track.map(p=>p.slice()):detect(cv,w,h);
+  const found=!!corners;
+  if(!corners) corners=defaultCorners(w,h);
+  $('flashFx').classList.remove('go'); void $('flashFx').offsetWidth; $('flashFx').classList.add('go');
+  if(navigator.vibrate) navigator.vibrate(25);
+  if(!found) toast('문서를 찾지 못했어요. 모서리를 직접 조정할 수 있어요');
+  openResult(cv,corners);
+}
+
+/* ---------- loading from file ---------- */
+function loadFile(file){
+  return new Promise(res=>{
+    const url=URL.createObjectURL(file), img=new Image();
+    img.onload=()=>{
+      const MAX=2800, sc=Math.min(1,MAX/Math.max(img.naturalWidth,img.naturalHeight));
+      const w=Math.round(img.naturalWidth*sc), h=Math.round(img.naturalHeight*sc);
+      const cv=document.createElement('canvas'); cv.width=w;cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      URL.revokeObjectURL(url); res(cv);
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);res(null);};
+    img.src=url;
+  });
+}
+async function nextFromQueue(){
+  while(S.queue.length){
+    const f=S.queue.shift();
+    const cv=await loadFile(f);
+    if(!cv){toast('이미지를 열 수 없어요');continue;}
+    let c=detect(cv,cv.width,cv.height);
+    if(!c){c=defaultCorners(cv.width,cv.height);toast('문서를 찾지 못했어요. 모서리를 직접 조정할 수 있어요');}
+    openResult(cv,c); return true;
+  }
+  return false;
+}
+function pickFiles(e){
+  const files=Array.from(e.target.files||[]); e.target.value='';
+  if(!files.length) return;
+  S.queue=files; nextFromQueue();
+}
+$('inCapture').onchange=pickFiles;
+$('inGallery').onchange=pickFiles;
+
+/* ---------- perspective warp ---------- */
+function solve8(A,b){
+  const n=8;
+  for(let i=0;i<n;i++){
+    let p=i; for(let r=i+1;r<n;r++) if(Math.abs(A[r][i])>Math.abs(A[p][i])) p=r;
+    [A[i],A[p]]=[A[p],A[i]]; [b[i],b[p]]=[b[p],b[i]];
+    for(let r=0;r<n;r++){ if(r===i) continue; const f=A[r][i]/A[i][i];
+      for(let c=i;c<n;c++) A[r][c]-=f*A[i][c]; b[r]-=f*b[i]; }
+  }
+  return b.map((v,i)=>v/A[i][i]);
+}
+function homography(dst,src){ // maps dst(x,y)->src(X,Y)
+  const A=[],b=[];
+  for(let i=0;i<4;i++){
+    const [x,y]=dst[i],[X,Y]=src[i];
+    A.push([x,y,1,0,0,0,-x*X,-y*X]);b.push(X);
+    A.push([0,0,0,x,y,1,-x*Y,-y*Y]);b.push(Y);
+  }
+  return solve8(A,b);
+}
+function warp(srcCv,q){
+  const [tl,tr,br,bl]=q, d=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+  let ow=Math.max(d(tl,tr),d(bl,br)), oh=Math.max(d(tl,bl),d(tr,br));
+  const cap=2400, k=Math.min(1,cap/Math.max(ow,oh));
+  ow=Math.max(200,Math.round(ow*k)); oh=Math.max(200,Math.round(oh*k));
+  const sw=srcCv.width, sh=srcCv.height;
+  const sd=srcCv.getContext('2d').getImageData(0,0,sw,sh).data;
+  const out=document.createElement('canvas'); out.width=ow; out.height=oh;
+  const octx2=out.getContext('2d'), od=octx2.createImageData(ow,oh), o=od.data;
+  const H=homography([[0,0],[ow,0],[ow,oh],[0,oh]],[tl,tr,br,bl]);
+  for(let y=0;y<oh;y++){
+    for(let x=0;x<ow;x++){
+      const den=H[6]*x+H[7]*y+1;
+      let sx=(H[0]*x+H[1]*y+H[2])/den, sy=(H[3]*x+H[4]*y+H[5])/den;
+      const oi=(y*ow+x)*4;
+      sx=Math.min(sw-1.001,Math.max(0,sx)); sy=Math.min(sh-1.001,Math.max(0,sy));
+      const x0=sx|0,y0=sy|0,fx=sx-x0,fy=sy-y0;
+      const i00=(y0*sw+x0)*4,i10=i00+4,i01=i00+sw*4,i11=i01+4;
+      const w00=(1-fx)*(1-fy),w10=fx*(1-fy),w01=(1-fx)*fy,w11=fx*fy;
+      o[oi]=sd[i00]*w00+sd[i10]*w10+sd[i01]*w01+sd[i11]*w11;
+      o[oi+1]=sd[i00+1]*w00+sd[i10+1]*w10+sd[i01+1]*w01+sd[i11+1]*w11;
+      o[oi+2]=sd[i00+2]*w00+sd[i10+2]*w10+sd[i01+2]*w01+sd[i11+2]*w11;
+      o[oi+3]=255;
+    }
+  }
+  octx2.putImageData(od,0,0);
+  return out;
+}
+function rotateCanvas(cv,deg){
+  deg=((deg%360)+360)%360; if(!deg) return cv;
+  const o=document.createElement('canvas');
+  const sw=deg===180;
+  o.width=sw?cv.width:cv.height; o.height=sw?cv.height:cv.width;
+  const c=o.getContext('2d'); c.translate(o.width/2,o.height/2); c.rotate(deg*Math.PI/180);
+  c.drawImage(cv,-cv.width/2,-cv.height/2); return o;
+}
+
+/* ---------- shadow removal + filters ---------- */
+function normalize(cv){
+  const w=cv.width,h=cv.height;
+  const sw=Math.max(8,Math.round(w/12)), sh=Math.max(8,Math.round(h/12));
+  const sm=document.createElement('canvas'); sm.width=sw;sm.height=sh;
+  const sc=sm.getContext('2d',{willReadFrequently:true});
+  sc.drawImage(cv,0,0,sw,sh);
+  const d=sc.getImageData(0,0,sw,sh).data, lum=new Uint8Array(sw*sh);
+  for(let i=0,j=0;i<lum.length;i++,j+=4) lum[i]=(d[j]*77+d[j+1]*150+d[j+2]*29)>>8;
+  let bg=maxFilter(lum,sw,sh,3); bg=boxBlur(bg,sw,sh,3); bg=boxBlur(bg,sw,sh,3);
+  const bc=document.createElement('canvas'); bc.width=sw;bc.height=sh;
+  const bx=bc.getContext('2d'), bi=bx.createImageData(sw,sh);
+  for(let i=0;i<bg.length;i++){bi.data[i*4]=bi.data[i*4+1]=bi.data[i*4+2]=bg[i];bi.data[i*4+3]=255;}
+  bx.putImageData(bi,0,0);
+  const big=document.createElement('canvas'); big.width=w;big.height=h;
+  const bgx=big.getContext('2d',{willReadFrequently:true}); bgx.imageSmoothingQuality='high';
+  bgx.drawImage(bc,0,0,w,h);
+  const bd=bgx.getImageData(0,0,w,h).data;
+  const out=document.createElement('canvas'); out.width=w;out.height=h;
+  const ox=out.getContext('2d'), src=cv.getContext('2d').getImageData(0,0,w,h), s=src.data;
+  for(let i=0;i<s.length;i+=4){
+    const g=255/Math.max(60,bd[i]);
+    s[i]=Math.min(255,s[i]*g); s[i+1]=Math.min(255,s[i+1]*g); s[i+2]=Math.min(255,s[i+2]*g);
+  }
+  ox.putImageData(src,0,0); return out;
+}
+const smooth=(a,b,x)=>{const t=Math.min(1,Math.max(0,(x-a)/(b-a)));return t*t*(3-2*t);};
+function applyFilter(base,norm,mode){
+  if(mode==='original') return base;
+  const w=norm.width,h=norm.height;
+  const out=document.createElement('canvas'); out.width=w;out.height=h;
+  const c=out.getContext('2d'), id=norm.getContext('2d').getImageData(0,0,w,h), d=id.data;
+  for(let i=0;i<d.length;i+=4){
+    const r=d[i]/255,g=d[i+1]/255,b=d[i+2]/255, l=0.299*r+0.587*g+0.114*b;
+    if(mode==='magic'){
+      const sat=1.25;
+      const nr=Math.pow(Math.min(1,Math.max(0,l+(r-l)*sat)),1.5);
+      const ng=Math.pow(Math.min(1,Math.max(0,l+(g-l)*sat)),1.5);
+      const nb=Math.pow(Math.min(1,Math.max(0,l+(b-l)*sat)),1.5);
+      d[i]=nr*255;d[i+1]=ng*255;d[i+2]=nb*255;
+    }else if(mode==='bw'){
+      const v=smooth(0.5,0.82,l)*255; d[i]=d[i+1]=d[i+2]=v;
+    }else{ // gray
+      const v=Math.pow(l,1.4)*255; d[i]=d[i+1]=d[i+2]=v;
+    }
+  }
+  c.putImageData(id,0,0); return out;
+}
+const FILTERS=[['magic','매직 컬러'],['original','원본'],['bw','흑백 문서'],['gray','그레이']];
+
+/* ---------- result screen ---------- */
+function setBusy(v){$('busy').classList.toggle('show',v);}
+async function openResult(srcCv,corners){
+  S.cur={src:srcCv,corners,rot:0,filter:'magic',base0:null,base:null,norm:null,out:null};
+  show('res'); setBusy(true); await nextFrame();
+  S.cur.base0=warp(srcCv,corners);
+  await rebuild();
+}
+async function rebuild(){
+  const c=S.cur; setBusy(true); await nextFrame();
+  c.base=rotateCanvas(c.base0,c.rot);
+  c.norm=normalize(c.base);
+  buildFilterThumbs(); renderResult(); setBusy(false);
+}
+function buildFilterThumbs(){
+  const c=S.cur, row=$('filtersRow');
+  const k=96/c.base.width, mw=96, mh=Math.max(1,Math.round(c.base.height*k));
+  const mini=document.createElement('canvas'); mini.width=mw;mini.height=mh;
+  mini.getContext('2d').drawImage(c.base,0,0,mw,mh);
+  const mnorm=normalize(mini);
+  row.innerHTML='';
+  FILTERS.forEach(([key,label])=>{
+    const el=document.createElement('div'); el.className='fopt'+(key===c.filter?' active':''); el.dataset.k=key;
+    const cv=document.createElement('canvas'); cv.width=mw;cv.height=60;
+    const t=applyFilter(mini,mnorm,key);
+    const cx=cv.getContext('2d'); cx.fillStyle='#fff';cx.fillRect(0,0,mw,60);
+    cx.drawImage(t,0,0,mw,60*(mw/mw)*Math.min(1,mh/60)||60,0,0,mw,60);
+    cv.getContext('2d').clearRect(0,0,mw,60);
+    cv.getContext('2d').drawImage(t,0,0,t.width,Math.min(t.height,60),0,0,mw,60);
+    const sp=document.createElement('span'); sp.textContent=label;
+    el.append(cv,sp);
+    el.onclick=async()=>{
+      c.filter=key; row.querySelectorAll('.fopt').forEach(o=>o.classList.toggle('active',o===el));
+      setBusy(true); await nextFrame(); renderResult(); setBusy(false);
+    };
+    row.appendChild(el);
+  });
+}
+function renderResult(){
+  const c=S.cur;
+  c.out=applyFilter(c.base,c.norm,c.filter);
+  const rc=$('resCanvas'); rc.width=c.out.width; rc.height=c.out.height;
+  rc.getContext('2d').drawImage(c.out,0,0);
+}
+$('toolRotL').onclick=()=>{S.cur.rot-=90;rebuild();};
+$('toolRotR').onclick=()=>{S.cur.rot+=90;rebuild();};
+$('resBack').onclick=()=>{S.cur=null;S.queue=[];show('cam');};
+
+function commitPage(){
+  const c=S.cur; if(!c||!c.out) return false;
+  const t=document.createElement('canvas'), k=140/c.out.width;
+  t.width=140; t.height=Math.max(1,Math.round(c.out.height*k));
+  t.getContext('2d').drawImage(c.out,0,0,t.width,t.height);
+  S.pages.push({canvas:c.out,thumb:t.toDataURL('image/jpeg',0.7)});
+  S.cur=null; updateCamBadge(); return true;
+}
+$('addNext').onclick=async()=>{
+  if(!commitPage()) return;
+  toast('페이지를 추가했어요');
+  if(S.queue.length){ await nextFromQueue(); } else show('cam');
+};
+$('finishBtn').onclick=()=>{
+  if(!commitPage()) return;
+  S.queue=[]; renderPages(); show('pages');
+};
+function updateCamBadge(){
+  const n=S.pages.length;
+  $('camBadge').style.display=n?'':'none'; $('camBadge').textContent=n;
+  const img=$('lastThumb');
+  if(n){img.src=S.pages[n-1].thumb;img.style.display='';$('doneEmpty').style.display='none';}
+  else{img.style.display='none';$('doneEmpty').style.display='';}
+}
+
+/* ---------- crop adjust ---------- */
+let cropCorners=null;
+function openCrop(){
+  const c=S.cur; cropCorners=c.corners.map(p=>p.slice());
+  const cv=$('cropCanvas'); cv.width=c.src.width; cv.height=c.src.height;
+  cv.getContext('2d').drawImage(c.src,0,0);
+  show('crop'); drawCrop();
+}
+function drawCrop(){
+  const c=S.cur, svg=$('cropSvg'), W=c.src.width, H=c.src.height;
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`); svg.setAttribute('preserveAspectRatio','none');
+  const r=Math.max(W,H)*0.012, hit=Math.max(W,H)*0.05;
+  svg.innerHTML=`<polygon class="quadFill" points="${cropCorners.map(p=>p.join(',')).join(' ')}"/>`+
+    cropCorners.map((p,i)=>`<circle class="hv" cx="${p[0]}" cy="${p[1]}" r="${r}"/><circle class="hit" data-i="${i}" cx="${p[0]}" cy="${p[1]}" r="${hit}"/>`).join('');
+  svg.querySelectorAll('.hit').forEach(h=>h.addEventListener('pointerdown',e=>{
+    e.preventDefault(); const i=+h.dataset.i; h.setPointerCapture(e.pointerId);
+    const mv=ev=>{
+      const rc=svg.getBoundingClientRect();
+      const x=(ev.clientX-rc.left)/rc.width*W, y=(ev.clientY-rc.top)/rc.height*H;
+      cropCorners[i]=[Math.max(0,Math.min(W,x)),Math.max(0,Math.min(H,y))];
+      // update in place for smoothness
+      svg.querySelector('polygon').setAttribute('points',cropCorners.map(p=>p.join(',')).join(' '));
+      const hv=svg.querySelectorAll('.hv'); hv[i].setAttribute('cx',cropCorners[i][0]); hv[i].setAttribute('cy',cropCorners[i][1]);
+      h.setAttribute('cx',cropCorners[i][0]); h.setAttribute('cy',cropCorners[i][1]);
+    };
+    const up=()=>{h.removeEventListener('pointermove',mv);h.removeEventListener('pointerup',up);h.removeEventListener('pointercancel',up);};
+    h.addEventListener('pointermove',mv);h.addEventListener('pointerup',up);h.addEventListener('pointercancel',up);
+  }));
+}
+$('toolCrop').onclick=openCrop;
+$('cropAuto').onclick=()=>{
+  const c=S.cur, q=detect(c.src,c.src.width,c.src.height);
+  if(q){cropCorners=q;drawCrop();} else toast('문서를 찾지 못했어요');
+};
+$('cropFull').onclick=()=>{const c=S.cur;cropCorners=[[0,0],[c.src.width,0],[c.src.width,c.src.height],[0,c.src.height]];drawCrop();};
+$('cropCancel').onclick=()=>show('res');
+$('cropOk').onclick=async()=>{
+  const c=S.cur; c.corners=cropCorners.map(p=>p.slice());
+  show('res'); setBusy(true); await nextFrame();
+  c.base0=warp(c.src,c.corners); await rebuild();
+};
+
+/* ---------- pages + export ---------- */
+function renderPages(){
+  const g=$('pagesGrid'); $('pagesCount').textContent=S.pages.length+'장';
+  if(!S.pages.length){g.innerHTML='<div class="emptyPages">아직 스캔한 페이지가 없어요.<br>아래 버튼으로 문서를 스캔해 보세요.</div>';return;}
+  g.innerHTML=S.pages.map((p,i)=>`
+    <div class="pcard"><span class="n">${i+1}</span><button class="x" data-a="del" data-i="${i}">×</button>
+    <img src="${p.thumb}"><div class="mv"><button data-a="l" data-i="${i}">◀</button><button data-a="r" data-i="${i}">▶</button></div></div>`).join('');
+  g.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.i,a=b.dataset.a;
+    if(a==='del') S.pages.splice(i,1);
+    else{const j=a==='l'?i-1:i+1; if(j>=0&&j<S.pages.length)[S.pages[i],S.pages[j]]=[S.pages[j],S.pages[i]];}
+    renderPages(); updateCamBadge();
+  });
+}
+$('doneBtn').onclick=()=>{renderPages();show('pages');};
+$('pagesBack').onclick=()=>show('cam');
+$('pagesMore').onclick=()=>show('cam');
+
+function stamp(){const d=new Date(),p=n=>String(n).padStart(2,'0');return `scan_${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;}
+function save(blob,name){
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+}
+const toBlob=(cv,type,q)=>new Promise(r=>cv.toBlob(r,type,q));
+
+$('expPdf').onclick=async()=>{
+  if(!S.pages.length) return toast('먼저 페이지를 스캔하세요');
+  const {jsPDF}=window.jspdf; if(!jsPDF) return toast('PDF 라이브러리를 불러오지 못했어요');
+  let pdf;
+  S.pages.forEach((p,i)=>{
+    const w=p.canvas.width,h=p.canvas.height, land=w>h;
+    const W=land?297:297*w/h, H=land?297*h/w:297;
+    const o=land?'l':'p';
+    if(i===0) pdf=new jsPDF({orientation:o,unit:'mm',format:[W,H]}); else pdf.addPage([W,H],o);
+    pdf.addImage(p.canvas.toDataURL('image/jpeg',0.9),'JPEG',0,0,W,H);
+  });
+  pdf.save(stamp()+'.pdf'); toast('PDF로 저장했어요');
+};
+async function expImg(ext,type){
+  if(!S.pages.length) return toast('먼저 페이지를 스캔하세요');
+  const base=stamp();
+  if(S.pages.length===1){
+    save(await toBlob(S.pages[0].canvas,type,0.92),`${base}.${ext}`);
+    return toast(ext.toUpperCase()+'로 저장했어요');
+  }
+  const zip=new JSZip();
+  for(let i=0;i<S.pages.length;i++){
+    zip.file(`${base}_${String(i+1).padStart(2,'0')}.${ext}`,await toBlob(S.pages[i].canvas,type,0.92));
+  }
+  save(await zip.generateAsync({type:'blob'}),`${base}_${ext}.zip`);
+  toast(`${ext.toUpperCase()} ${S.pages.length}장을 zip으로 저장했어요`);
+}
+$('expJpg').onclick=()=>expImg('jpg','image/jpeg');
+$('expPng').onclick=()=>expImg('png','image/png');
+
+/* ---------- camera UI wiring ---------- */
+$('shutterBtn').onclick=()=>shoot(false);
+$('galleryBtn').onclick=()=>$('inGallery').click();
+$('fbCapture').onclick=()=>$('inCapture').click();
+$('fbRetry').onclick=()=>{S.camOn=false;startCamera();};
+$('autoBtn').onclick=()=>{
+  S.auto=!S.auto; $('autoBtn').classList.toggle('on',S.auto);
+  $('autoLabel').textContent=S.auto?'자동 촬영':'수동'; S.stable=0;
+};
+$('torchBtn').onclick=async()=>{
+  if(!S.stream) return;
+  S.torch=!S.torch;
+  try{await S.stream.getVideoTracks()[0].applyConstraints({advanced:[{torch:S.torch}]});}catch(e){S.torch=false;}
+  $('torchBtn').classList.toggle('on',S.torch);
+};
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden&&S.camOn) stopCamera();
+  else if(!document.hidden&&$('screen-cam').classList.contains('active')) startCamera();
+});
+
+updateCamBadge();
+startCamera();
+</script>
+</body>
+</html>
