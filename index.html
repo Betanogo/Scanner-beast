@@ -277,7 +277,7 @@
     <div class="title" id="prevTitle">스캔 영역 확인</div>
     <button class="iconBtn right" id="prevAuto" style="color:var(--amber)">자동 인식</button>
   </div>
-  <div id="prevStatus"><span class="dot busy" id="prevDot"></span><span id="prevMsg">사진을 여는 중…</span><button class="miniBtn" id="prevFull">전체 프레임</button></div>
+  <div id="prevStatus"><span class="dot busy" id="prevDot"></span><span id="prevMsg">사진을 여는 중…</span><button class="miniBtn" id="prevAlt" style="display:none">다른 영역</button><button class="miniBtn" id="prevFull">전체 프레임</button></div>
   <div id="prevWrap"><div id="prevStage"><canvas id="prevCanvas"></canvas><svg id="prevSvg"></svg>
     <div id="loupe"><canvas id="loupeCv" width="120" height="120"></canvas></div></div></div>
   <div class="bottomActs">
@@ -660,7 +660,7 @@ function detectCV(srcCanvas){
   const sm=document.createElement('canvas'); sm.width=w; sm.height=h;
   sm.getContext('2d').drawImage(srcCanvas,0,0,w,h);
   const keep=[]; const T=m=>{keep.push(m);return m;};
-  const cands=[];
+  const cands=[]; let edgeRefCopy=null;
   try{
     const rgba=T(CV.imread(sm));
     const rgb=T(new CV.Mat()); CV.cvtColor(rgba,rgb,CV.COLOR_RGBA2RGB);
@@ -671,8 +671,27 @@ function detectCV(srcCanvas){
     const kb=T(CV.getStructuringElement(CV.MORPH_RECT,new CV.Size(11,11)));
     // reference edge map used for scoring
     const edgeRef=T(new CV.Mat()); CV.Canny(blur,edgeRef,22,66);
+    edgeRefCopy=Uint8Array.from(edgeRef.data);
     const edgeD=T(new CV.Mat()); CV.dilate(edgeRef,edgeD,T(CV.getStructuringElement(CV.MORPH_RECT,new CV.Size(5,5))));
     const minArea=0.08*w*h, imgArea=w*h;
+    // background colour = median colour of the frame border, in Lab; dist = how different each pixel is from it
+    const lab=T(new CV.Mat()); CV.cvtColor(rgb,lab,CV.COLOR_RGB2Lab);
+    const bw=Math.max(3,Math.round(Math.min(w,h)*0.04)), samples=[[],[],[]];
+    const grab=(x0,y0,x1,y1)=>{ for(let y=y0;y<y1;y+=2) for(let x=x0;x<x1;x+=2){ const i=(y*w+x)*3; samples[0].push(lab.data[i]); samples[1].push(lab.data[i+1]); samples[2].push(lab.data[i+2]); } };
+    grab(0,0,w,bw); grab(0,h-bw,w,h); grab(0,bw,bw,h-bw); grab(w-bw,bw,w,h-bw);
+    const med=a=>{ a.sort((x,y)=>x-y); return a[a.length>>1]; };
+    const bg=[med(samples[0]),med(samples[1]),med(samples[2])];
+    const dist=T(new CV.Mat(h,w,CV.CV_8UC1));
+    for(let i=0,j=0;i<w*h;i++,j+=3){
+      const dl=lab.data[j]-bg[0], da=lab.data[j+1]-bg[1], db=lab.data[j+2]-bg[2];
+      dist.data[i]=Math.min(255,Math.sqrt(dl*dl*0.8+da*da*1.6+db*db*1.6)*3.2);
+    }
+    // how much of the border itself differs from the background colour (if a lot, the 'background' guess is unreliable)
+    let bOut=0,bTot=0;
+    const bchk=(x,y)=>{ bTot++; if(dist.data[y*w+x]>45) bOut++; };
+    for(let x=0;x<w;x+=2){ bchk(x,0); bchk(x,h-1); } for(let y=0;y<h;y+=2){ bchk(0,y); bchk(w-1,y); }
+    const kBg=Math.min(1,Math.max(0.2,1-((bOut/bTot)-0.15)/0.3));
+    const hugM=Math.max(4,0.025*Math.min(w,h));
 
     const addCand=(q0,hullArea,tag)=>{
       let q=orderTLTR(q0);
@@ -685,8 +704,25 @@ function detectCV(srcCanvas){
       const mean=(per[0]+per[1]+per[2]+per[3])/4, mn=Math.min(...per);
       const s=0.65*mean+0.35*mn;
       const rect=1-Math.min(1,Math.abs(1-Math.min(fill,1)))*2;
-      const score=Math.pow(qa,0.55)*(0.12+0.88*s*s)*rect;
-      cands.push({q,score,conf:Math.min(1,s*rect*1.15),tag,qa,s});
+      // (a) share of the frame border this quad runs along: a quad hugging the frame is the surface, not the object
+      let hug=0,ht=0;
+      for(let i=0;i<4;i++){ const a=q[i],b=q[(i+1)%4], n=Math.max(8,Math.round(Math.hypot(b[0]-a[0],b[1]-a[1])/3));
+        for(let k=0;k<=n;k++){ const t=k/n, x=a[0]+(b[0]-a[0])*t, y=a[1]+(b[1]-a[1])*t; ht++; if(x<hugM||y<hugM||x>w-hugM||y>h-hugM) hug++; } }
+      const hugPen=Math.min(1,Math.max(0,(hug/ht-0.12)/0.45));
+      // (b) share of the inside that has the same colour as the background (colour-agnostic: dark pad on white desk, photo on black table ...)
+      let bgIn=0,tot=0;
+      const xs=q.map(p=>p[0]), ys=q.map(p=>p[1]);
+      const x0=Math.max(0,Math.floor(Math.min(...xs))), x1=Math.min(w-1,Math.ceil(Math.max(...xs)));
+      const y0=Math.max(0,Math.floor(Math.min(...ys))), y1=Math.min(h-1,Math.ceil(Math.max(...ys)));
+      for(let y=y0;y<=y1;y+=3) for(let x=x0;x<=x1;x+=3){
+        let inside=true;
+        for(let i=0;i<4;i++){ const a=q[i],b=q[(i+1)%4]; if((b[0]-a[0])*(y-a[1])-(b[1]-a[1])*(x-a[0])<0){ inside=false; break; } }
+        if(!inside) continue; tot++; if(dist.data[y*w+x]<42) bgIn++;
+      }
+      const bgFrac=tot?bgIn/tot:0;
+      const bgPen=Math.min(1,Math.max(0,(bgFrac-0.3)/0.4))*kBg;
+      const score=Math.pow(qa,0.4)*(0.12+0.88*s*s)*rect*(1-0.85*hugPen)*(1-0.9*bgPen);
+      cands.push({q,area:A,quality:Math.pow(qa,0.4)*(0.12+0.88*s*s)*rect,s,score,conf:Math.min(1,s*rect*1.15*(1-0.6*hugPen)*(1-0.7*bgPen)),tag,qa,s});
     };
     const fromMask=(mask,tag)=>{
       const cnts=new CV.MatVector(), hier=new CV.Mat();
@@ -727,18 +763,7 @@ function detectCV(srcCanvas){
       const c2=T(new CV.Mat()); CV.morphologyEx(o,c2,CV.MORPH_CLOSE,kb);
       fromMask(c2,'T');
     }
-    // 3) difference from the background colour (median colour of the frame border), in Lab
-    const lab=T(new CV.Mat()); CV.cvtColor(rgb,lab,CV.COLOR_RGB2Lab);
-    const bw=Math.max(3,Math.round(Math.min(w,h)*0.04)), samples=[[],[],[]];
-    const grab=(x0,y0,x1,y1)=>{ for(let y=y0;y<y1;y+=2) for(let x=x0;x<x1;x+=2){ const i=(y*w+x)*3; samples[0].push(lab.data[i]); samples[1].push(lab.data[i+1]); samples[2].push(lab.data[i+2]); } };
-    grab(0,0,w,bw); grab(0,h-bw,w,h); grab(0,bw,bw,h-bw); grab(w-bw,bw,w,h-bw);
-    const med=a=>{ a.sort((x,y)=>x-y); return a[a.length>>1]; };
-    const bg=[med(samples[0]),med(samples[1]),med(samples[2])];
-    const dist=T(new CV.Mat(h,w,CV.CV_8UC1));
-    for(let i=0,j=0;i<w*h;i++,j+=3){
-      const dl=lab.data[j]-bg[0], da=lab.data[j+1]-bg[1], db=lab.data[j+2]-bg[2];
-      dist.data[i]=Math.min(255,Math.sqrt(dl*dl*0.8+da*da*1.6+db*db*1.6)*3.2);
-    }
+    // 3) difference from the background colour (computed above)
     const dblur=T(new CV.Mat()); CV.GaussianBlur(dist,dblur,new CV.Size(7,7),0);
     const dbin=T(new CV.Mat()); CV.threshold(dblur,dbin,0,255,CV.THRESH_BINARY|CV.THRESH_OTSU);
     const d1=T(new CV.Mat()); CV.morphologyEx(dbin,d1,CV.MORPH_OPEN,kc);
@@ -751,10 +776,37 @@ function detectCV(srcCanvas){
   }
   if(!cands.length) return null;
   cands.sort((a,b)=>b.score-a.score);
-  const best=cands[0];
+  const diag=Math.hypot(w,h);
+  const same=(p,q)=>p.every((pt,i)=>Math.hypot(pt[0]-q[i][0],pt[1]-q[i][1])<0.04*diag);
+  const uniq=[]; for(const c of cands){ if(!uniq.some(u=>same(u.q,c.q))) uniq.push(c); }
+  const inside=(pt,Q,grow)=>{                       // convex quad test, quad grown around its centre by `grow`
+    const cx=(Q[0][0]+Q[1][0]+Q[2][0]+Q[3][0])/4, cy=(Q[0][1]+Q[1][1]+Q[2][1]+Q[3][1])/4;
+    const G=Q.map(p=>[cx+(p[0]-cx)*grow,cy+(p[1]-cy)*grow]);
+    for(let i=0;i<4;i++){ const a=G[i],b=G[(i+1)%4]; if((b[0]-a[0])*(pt[1]-a[1])-(b[1]-a[1])*(pt[0]-a[0])<0) return false; }
+    return true;
+  };
+  let best=uniq[0];
+  // an object lying on a big smooth surface (desk, table): prefer the clearly-bounded inner object
+  if(edgeRefCopy){
+    let pick=null;
+    for(const B of uniq.slice(1)){
+      const _in=B.q.every(p=>inside(p,best.q,1));
+      if(B.s<0.7||B.quality<0.28*best.quality||!_in) continue;
+      const ratio=B.area/best.area; if(ratio<0.08||ratio>0.6) continue;
+      // edge density of the outer surface excluding the inner object
+      const xs=best.q.map(p=>p[0]), ys=best.q.map(p=>p[1]); let e=0,n=0;
+      for(let y=Math.max(0,Math.floor(Math.min(...ys))); y<=Math.min(h-1,Math.ceil(Math.max(...ys))); y+=3)
+        for(let x=Math.max(0,Math.floor(Math.min(...xs))); x<=Math.min(w-1,Math.ceil(Math.max(...xs))); x+=3){
+          if(!inside([x,y],best.q,0.96)||inside([x,y],B.q,1.1)) continue; n++; if(edgeRefCopy[y*w+x]) e++; }
+      if(n<200||e/n>0.025) continue;
+      if(!pick||B.quality>pick.quality) pick=B;
+    }
+    if(pick) best=pick;
+  }
+  const alts=[best].concat(uniq.filter(c=>c!==best&&c.score>=0.12*best.score).slice(0,6)).map(c=>c.q.map(p=>[p[0]/sc,p[1]/sc]));
   let q=best.q.map(p=>[p[0]/sc,p[1]/sc]);
   q=refineQuad(srcCanvas,q);
-  return {quad:q,conf:best.conf,tag:best.tag};
+  return {quad:q,conf:best.conf,tag:best.tag,alts};
 }
 
 /* ---------- sub-pixel refinement on the full-resolution photo ---------- */
@@ -1043,7 +1095,7 @@ function detectJS(src,sw,sh){
 }
 function defaultCorners(w,h){ const m=0.06; return [[w*m,h*m],[w*(1-m),h*m],[w*(1-m),h*(1-m)],[w*m,h*(1-m)]]; }
 function detectDoc(cv){                     // -> {quad,conf} | null
-  if(CV){ try{ const r=detectCV(cv); if(r) return {quad:r.quad,conf:r.conf}; return null; }catch(e){ console.warn(e); } }
+  if(CV){ try{ const r=detectCV(cv); if(r) return {quad:r.quad,conf:r.conf,alts:r.alts||[]}; return null; }catch(e){ console.warn(e); } }
   const q=detectJS(cv,cv.width,cv.height); return q?{quad:q,conf:0.3}:null;
 }
 function warpAny(src,q){ if(CV){ try{ return cvWarp(src,q); }catch(e){ console.warn(e); } } return warp(src,q); }
@@ -1101,7 +1153,7 @@ async function startPreview(photo){
   const c=S.cur={src:photo,corners:defaultCorners(photo.width,photo.height),conf:0,found:false,rot:0,filter:'magic',idx,base0:null,base:null,norm:null,out:null};
   $('prevTitle').textContent=S.session.count?`스캔 영역 확인 · ${S.session.count+1}장째`:'스캔 영역 확인';
   const pc=$('prevCanvas'); pc.width=photo.width; pc.height=photo.height; pc.getContext('2d').drawImage(photo,0,0);
-  $('prevSvg').innerHTML=''; $('scanIt').disabled=true; $('prevAuto').disabled=true;
+  $('prevSvg').innerHTML=''; $('scanIt').disabled=true; $('prevAuto').disabled=true; $('prevAlt').style.display='none';
   show('prev'); setPrevStatus('busy','문서를 찾는 중…');
   await nextFrame();
   if(!CV){
@@ -1112,7 +1164,8 @@ async function startPreview(photo){
   }
   if(S.cur!==c) return;
   const det=detectDoc(photo);
-  if(det){ c.corners=det.quad; c.conf=det.conf; c.found=true; }
+  if(det){ c.corners=det.quad; c.conf=det.conf; c.found=true; c.alts=det.alts||[]; c.altI=0; }
+  $('prevAlt').style.display=(c.alts&&c.alts.length>1)?'':'none';
   $('scanIt').disabled=false; $('prevAuto').disabled=false;
   drawPrev(); statusFromConf();
 }
@@ -1184,6 +1237,11 @@ $('prevAuto').onclick=async()=>{
   if(det){ c.corners=det.quad; c.conf=det.conf; c.found=true; } else { c.found=false; c.conf=0; c.corners=defaultCorners(c.src.width,c.src.height); }
   drawPrev(); statusFromConf();
 };
+$('prevAlt').onclick=()=>{ const c=S.cur; if(!c||!c.alts||c.alts.length<2) return;
+  c.altI=(c.altI+1)%c.alts.length; let q=c.alts[c.altI];
+  if(CV){ try{ q=refineQuad(c.src,q)||q; }catch(e){} }
+  c.corners=q.map(p=>[p[0],p[1]]); c.found=true; c.conf=Math.max(c.conf,0.4); drawPrev();
+  setPrevStatus('ok',`다른 영역 ${c.altI+1}/${c.alts.length} · 모서리를 확인하고 Scan it`); };
 $('prevFull').onclick=()=>{ const c=S.cur; if(!c) return; c.corners=[[0,0],[c.src.width,0],[c.src.width,c.src.height],[0,c.src.height]]; c.found=true; c.conf=0.5; drawPrev(); setPrevStatus('ok','전체 프레임으로 맞췄어요'); };
 $('prevRetake').onclick=()=>{ S.retakeIdx=S.cur?S.cur.idx:null; $('inCapture').click(); };
 $('prevClose').onclick=()=>finishSession();
