@@ -170,6 +170,22 @@
   .rowBtns{display:flex;gap:8px;}
   .rowBtns .btn{flex:1;}
 
+
+  /* ===== export sheet ===== */
+  #exportSheet{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.72);display:none;align-items:flex-end;justify-content:center;}
+  #exportSheet.show{display:flex;}
+  .shBox{width:100%;max-width:560px;max-height:92vh;background:var(--surface);border-radius:20px 20px 0 0;border:1px solid var(--line);
+    display:flex;flex-direction:column;padding:16px 16px calc(16px + var(--sab));gap:12px;}
+  .shHead{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .shHead b{font-size:17px;font-weight:800;letter-spacing:-.01em;}
+  .shX{appearance:none;background:var(--surface2);border:1px solid var(--line);color:var(--text);width:34px;height:34px;border-radius:50%;font-size:15px;cursor:pointer;}
+  .shMeta{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--dim);word-break:break-all;line-height:1.5;}
+  .shPrev{flex:1;min-height:120px;overflow:auto;display:flex;gap:10px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px;}
+  .shPrev img{height:min(38vh,320px);width:auto;flex:0 0 auto;background:#fff;border-radius:4px;display:block;}
+  .shActs{display:flex;flex-direction:column;gap:8px;}
+  .shActs a.btn,.shActs button.btn{text-decoration:none;width:100%;}
+  .shTip{font-size:12px;color:var(--dim);line-height:1.6;text-align:center;}
+
   #viewer{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.94);display:none;align-items:center;justify-content:center;padding:20px;}
   #viewer.show{display:flex;}
   #viewer img{max-width:100%;max-height:100%;background:#fff;}
@@ -299,6 +315,19 @@
   </div>
 </section>
 
+<div id="exportSheet" role="dialog" aria-modal="true">
+  <div class="shBox">
+    <div class="shHead"><b id="shTitle">파일이 준비됐어요</b><button class="shX" id="shClose" aria-label="닫기">✕</button></div>
+    <div class="shMeta" id="shMeta"></div>
+    <div class="shPrev" id="shPrev"></div>
+    <div class="shActs">
+      <a class="btn primary" id="shSave" download>⬇ 저장하기</a>
+      <button class="btn ghost" id="shShare" style="display:none">공유 · 파일 앱에 저장</button>
+      <a class="btn ghost" id="shOpen" target="_blank" rel="noopener">새 탭에서 열기</a>
+    </div>
+    <div class="shTip" id="shTip"></div>
+  </div>
+</div>
 <div id="viewer"><img id="viewerImg" alt=""></div>
 <div id="toast"></div>
 <input type="file" id="inCapture" accept="image/*" capture="environment">
@@ -963,14 +992,40 @@ $('docAddPage').onclick=()=>{ S.appendTo=S.openDoc; S.batch=[]; show('cam'); };
 
 /* ---------- export (per document) ---------- */
 function safeName(n){ return n.replace(/[\\/:*?"<>|]+/g,'_').trim()||'scan'; }
-function save(blob,name){
-  const url=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),4000);
+let shUrl=null, shFile=null;
+function closeSheet(){
+  $('exportSheet').classList.remove('show');
+  if(shUrl){ const u=shUrl; shUrl=null; setTimeout(()=>URL.revokeObjectURL(u),3000); }
+  shFile=null;
 }
+function openSheet(blob,name,kind){
+  const d=curDoc();
+  if(shUrl) URL.revokeObjectURL(shUrl);
+  shUrl=URL.createObjectURL(blob); shFile=new File([blob],name,{type:blob.type});
+  const label={pdf:'PDF',jpg:'JPG',png:'PNG',zip:'ZIP'}[kind];
+  $('shTitle').textContent=label+' 파일이 준비됐어요';
+  $('shMeta').textContent=`${name} · ${fmtSize(blob.size)}`;
+  $('shPrev').innerHTML=pageUrls.map((u,i)=>`<img src="${u}" alt="${i+1}페이지">`).join('');
+  const save=$('shSave'); save.href=shUrl; save.setAttribute('download',name);
+  const open=$('shOpen');
+  if(kind==='zip'){ open.style.display='none'; } else { open.style.display=''; open.href=shUrl; }
+  const canShare=!!(navigator.canShare&&navigator.canShare({files:[shFile]}));
+  $('shShare').style.display=canShare?'':'none';
+  $('shTip').textContent=(kind==='jpg'||kind==='png')
+    ?'"저장하기"가 안 되면 "공유"로 사진 앱에 저장하거나, 새 탭에서 이미지를 길게 눌러 저장하세요.'
+    :(kind==='zip'?'"저장하기"가 안 되면 "공유"에서 파일 앱을 선택하세요.':'"저장하기"가 안 되면 "새 탭에서 열기" 후 공유 버튼으로 저장하세요.');
+  $('exportSheet').classList.add('show');
+}
+$('shClose').onclick=closeSheet;
+$('exportSheet').onclick=e=>{ if(e.target.id==='exportSheet') closeSheet(); };
+$('shSave').onclick=()=>{ setTimeout(()=>toast('다운로드를 시작했어요'),50); };
+$('shShare').onclick=async()=>{
+  if(!shFile) return;
+  try{ await navigator.share({files:[shFile],title:shFile.name}); }catch(e){ if(e&&e.name!=='AbortError') toast('공유할 수 없어요. "저장하기"를 눌러 보세요'); }
+};
 $('expPdf').onclick=async()=>{
   const d=curDoc(); if(!d) return;
-  const {jsPDF}=window.jspdf||{}; if(!jsPDF) return toast('PDF 라이브러리를 불러오지 못했어요');
+  const {jsPDF}=window.jspdf||{}; if(!jsPDF) return toast('PDF 라이브러리를 불러오지 못했어요. 인터넷 연결을 확인해 주세요');
   toast('PDF를 만드는 중…');
   let pdf;
   for(let i=0;i<d.pages.length;i++){
@@ -981,7 +1036,7 @@ $('expPdf').onclick=async()=>{
     pdf.addImage(await blobToDataURL(d.pages[i]),'JPEG',0,0,W,H);
   }
   if(!pdf) return toast('내보낼 페이지가 없어요');
-  pdf.save(safeName(d.name)+'.pdf'); toast('PDF로 저장했어요');
+  openSheet(pdf.output('blob'),safeName(d.name)+'.pdf','pdf');
 };
 async function expImg(ext,type){
   const d=curDoc(); if(!d) return;
@@ -990,14 +1045,14 @@ async function expImg(ext,type){
     if(type==='image/jpeg') return b;
     const cv=await blobToCanvas(b); return toBlob(cv,type);
   };
+  toast(ext.toUpperCase()+'를 만드는 중…');
   if(d.pages.length===1){
-    save(await conv(d.pages[0]),`${base}.${ext}`);
-    return toast(ext.toUpperCase()+'로 저장했어요');
+    return openSheet(await conv(d.pages[0]),`${base}.${ext}`,ext);
   }
+  if(!window.JSZip) return toast('ZIP 라이브러리를 불러오지 못했어요. 인터넷 연결을 확인해 주세요');
   const zip=new JSZip();
   for(let i=0;i<d.pages.length;i++) zip.file(`${base}_${pad(i+1)}.${ext}`,await conv(d.pages[i]));
-  save(await zip.generateAsync({type:'blob'}),`${base}_${ext}.zip`);
-  toast(`${ext.toUpperCase()} ${d.pages.length}장을 zip으로 저장했어요`);
+  openSheet(await zip.generateAsync({type:'blob'}),`${base}_${ext}.zip`,'zip');
 }
 $('expJpg').onclick=()=>expImg('jpg','image/jpeg');
 $('expPng').onclick=()=>expImg('png','image/png');
