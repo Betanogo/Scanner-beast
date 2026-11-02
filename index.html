@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#0c0d10">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="스캔라인">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>스캔라인</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -171,6 +177,19 @@
   .rowBtns .btn{flex:1;}
 
 
+
+  /* ===== install card ===== */
+  #installCard{display:none;margin:0 0 16px;padding:14px;border:1px solid #5b4514;background:linear-gradient(135deg,#231b0a,#171a20);border-radius:14px;gap:12px;flex-direction:column;}
+  #installCard.show{display:flex;}
+  .icTop{display:flex;align-items:center;gap:12px;}
+  .icTop img{width:46px;height:46px;border-radius:11px;flex:0 0 auto;}
+  .icTxt{flex:1;min-width:0;}
+  .icTxt b{display:block;font-size:14.5px;font-weight:800;letter-spacing:-.01em;}
+  .icTxt span{display:block;margin-top:3px;font-size:12px;color:var(--dim);line-height:1.5;}
+  #icBtn{appearance:none;border:none;background:var(--amber);color:var(--amber-ink);font-weight:800;font-size:13.5px;padding:11px 16px;border-radius:10px;cursor:pointer;flex:0 0 auto;}
+  #icSteps{display:none;font-size:12.5px;line-height:1.75;color:var(--text);background:rgba(255,255,255,.04);border-radius:10px;padding:10px 12px;}
+  #icSteps.show{display:block;}
+
   /* ===== export sheet ===== */
   #exportSheet{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.72);display:none;align-items:flex-end;justify-content:center;}
   #exportSheet.show{display:flex;}
@@ -213,6 +232,14 @@
     </label>
   </div>
   <div id="libScroll">
+    <div id="installCard">
+      <div class="icTop">
+        <img src="icon-192.png" alt="">
+        <div class="icTxt"><b>앱으로 설치하기</b><span id="icDesc">홈 화면에 추가하면 앱처럼 바로 열리고, 인터넷 없이도 써요.</span></div>
+        <button id="icBtn">설치</button>
+      </div>
+      <div id="icSteps"></div>
+    </div>
     <div id="libMeta"></div>
     <div id="libGrid"></div>
   </div>
@@ -1079,6 +1106,41 @@ document.addEventListener('visibilitychange',()=>{
   else if(!document.hidden&&$('screen-cam').classList.contains('active')) startCamera();
 });
 window.addEventListener('pageshow',e=>{ if(e.persisted){ resetSort(); renderLib(); } });
+
+
+/* ---------- install as app (PWA) ---------- */
+const isStandalone=()=>(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
+const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+let deferredInstall=null;
+function renderInstall(){
+  const card=$('installCard');
+  if(isStandalone()){ card.classList.remove('show'); return; }
+  card.classList.add('show');
+  const btn=$('icBtn'), steps=$('icSteps');
+  if(deferredInstall){ btn.textContent='설치'; steps.classList.remove('show'); }
+  else{
+    btn.textContent='설치 방법';
+    steps.innerHTML=isIOS
+      ?'1. Safari 아래쪽 <b>공유 버튼(□↑)</b>을 눌러요<br>2. <b>홈 화면에 추가</b>를 골라요<br>3. 오른쪽 위 <b>추가</b>를 누르면 끝!'
+      :'1. 브라우저 오른쪽 위 <b>메뉴(⋮)</b>를 눌러요<br>2. <b>앱 설치</b> 또는 <b>홈 화면에 추가</b>를 골라요<br>3. <b>설치</b>를 누르면 끝!';
+  }
+}
+$('icBtn').onclick=async()=>{
+  if(deferredInstall){
+    deferredInstall.prompt();
+    const r=await deferredInstall.userChoice.catch(()=>null);
+    deferredInstall=null; renderInstall();
+    if(r&&r.outcome==='accepted') toast('설치 중이에요');
+  }else{
+    $('icSteps').classList.toggle('show');
+  }
+};
+window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); deferredInstall=e; renderInstall(); });
+window.addEventListener('appinstalled',()=>{ deferredInstall=null; renderInstall(); toast('앱이 설치됐어요. 홈 화면에서 열어 보세요'); });
+if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+renderInstall();
 
 /* ---------- init: always open on the library, sorted by time ---------- */
 (async()=>{
