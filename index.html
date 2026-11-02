@@ -135,7 +135,7 @@
   .spin{width:30px;height:30px;border:3px solid var(--line);border-top-color:var(--amber);border-radius:50%;animation:sp .7s linear infinite;}
   @keyframes sp{to{transform:rotate(360deg)}}
   .filtersRow{display:flex;gap:12px;overflow-x:auto;padding:12px 14px 6px;background:var(--bg);border-top:1px solid var(--line);}
-  .fopt{flex:0 0 auto;width:70px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;opacity:.55;}
+  .fopt{flex:0 0 auto;width:70px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;opacity:.8;}
   .fopt.active{opacity:1;}
   .fopt canvas{width:100%;height:60px;object-fit:cover;border-radius:8px;border:2px solid transparent;background:#fff;}
   .fopt.active canvas{border-color:var(--amber);}
@@ -215,6 +215,23 @@
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   input[type=file]{display:none;}
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+
+  /* ===== scan preview (corner check) ===== */
+  #prevStatus{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--surface);font-size:13px;font-weight:600;}
+  #prevStatus .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;background:var(--dim);}
+  .dot.ok{background:#3ddc84!important;} .dot.warn{background:var(--amber)!important;} .dot.bad{background:var(--danger)!important;}
+  .dot.busy{background:var(--amber)!important;animation:pulse 1s ease-in-out infinite;}
+  @keyframes pulse{50%{opacity:.25}}
+  #prevMsg{flex:1;min-width:0;line-height:1.45;}
+  .miniBtn{appearance:none;flex:0 0 auto;background:var(--surface2);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;}
+  #prevWrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:12px;background:#000;overflow:hidden;}
+  #prevStage{position:relative;line-height:0;max-width:100%;max-height:100%;}
+  #prevCanvas{display:block;max-width:100%;max-height:calc(100vh - 300px);max-height:calc(100dvh - 300px);}
+  #prevSvg{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair;}
+  #loupe{position:absolute;top:10px;left:10px;width:120px;height:120px;border-radius:50%;border:3px solid var(--amber);overflow:hidden;display:none;z-index:5;
+    box-shadow:0 6px 24px rgba(0,0,0,.6);background:#000;pointer-events:none;}
+  #loupe.right{left:auto;right:10px;} #loupe.show{display:block;}
+  #loupe canvas{width:100%;height:100%;display:block;}
 </style>
 </head>
 <body>
@@ -253,34 +270,20 @@
   </div>
 </section>
 
-<!-- ============ CAMERA ============ -->
-<section id="screen-cam" class="screen">
-  <div id="camStage">
-    <video id="video" playsinline muted autoplay></video>
-    <div id="flashFx"></div>
-    <div class="camTop">
-      <button class="chip" id="camClose">✕ 닫기</button>
-      <div class="camTopGroup">
-        <button class="chip" id="torchBtn" style="display:none">⚡ 플래시</button>
-        <button class="chip accent" id="camDone" style="display:none">완료 · 저장</button>
-      </div>
-    </div>
-    <div id="hint">문서 전체가 보이게 찍으세요 · 찍은 뒤 자동으로 크롭돼요</div>
-    <div id="camFallback">
-      <h2>실시간 카메라를 쓸 수 없어요</h2>
-      <p id="fbMsg">카메라 권한이 거부됐거나 보안 연결(https)이 아니에요. 아래 버튼으로 카메라 앱에서 촬영해도 찍은 뒤 문서를 자동으로 찾아요.</p>
-      <button class="btn primary" id="fbCapture">📷 카메라 앱으로 촬영</button>
-      <button class="btn ghost" id="fbRetry">카메라 다시 시도</button>
-    </div>
+<!-- ============ PREVIEW (corner check) ============ -->
+<section id="screen-prev" class="screen">
+  <div class="topbar">
+    <button class="iconBtn" id="prevClose">← 닫기</button>
+    <div class="title" id="prevTitle">스캔 영역 확인</div>
+    <button class="iconBtn right" id="prevAuto" style="color:var(--amber)">자동 인식</button>
   </div>
-  <div class="camBottom">
-    <button class="sideBtn" id="galleryBtn" aria-label="갤러리에서 가져오기">
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 8"/></svg>
-    </button>
-    <button class="shutter" id="shutterBtn" aria-label="촬영"><i></i></button>
-    <button class="sideBtn ph" id="lastBtn" aria-label="촬영한 페이지">
-      <img id="lastThumb" alt="">
-      <span class="badge" id="camBadge">0</span>
+  <div id="prevStatus"><span class="dot busy" id="prevDot"></span><span id="prevMsg">사진을 여는 중…</span><button class="miniBtn" id="prevFull">전체 프레임</button></div>
+  <div id="prevWrap"><div id="prevStage"><canvas id="prevCanvas"></canvas><svg id="prevSvg"></svg>
+    <div id="loupe"><canvas id="loupeCv" width="120" height="120"></canvas></div></div></div>
+  <div class="bottomActs">
+    <button class="btn ghost" id="prevRetake">📷 다시 찍기</button>
+    <button class="btn primary" id="scanIt">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><line x1="4" y1="12" x2="20" y2="12"/></svg>Scan it
     </button>
   </div>
 </section>
@@ -288,7 +291,7 @@
 <!-- ============ RESULT ============ -->
 <section id="screen-res" class="screen">
   <div class="topbar">
-    <button class="iconBtn" id="resBack">← 다시 찍기</button>
+    <button class="iconBtn" id="resBack">← 영역 수정</button>
     <div class="title">스캔 결과</div>
     <span style="min-width:64px"></span>
   </div>
@@ -297,7 +300,7 @@
     <div id="busy"><div class="spin"></div><div id="busyMsg">문서를 찾는 중…</div></div>
   </div>
   <div class="toolsRow">
-    <button class="tool" id="toolCrop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14"/></svg>크롭 조정</button>
+    <button class="tool" id="toolCrop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14"/></svg>영역 수정</button>
     <button class="tool" id="toolRotL"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>왼쪽 회전</button>
     <button class="tool" id="toolRotR"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>오른쪽 회전</button>
   </div>
@@ -305,20 +308,6 @@
   <div class="bottomActs">
     <button class="btn ghost" id="addNext">＋ 다음 장</button>
     <button class="btn primary" id="finishBtn">완료 · 저장</button>
-  </div>
-</section>
-
-<!-- ============ CROP ============ -->
-<section id="screen-crop" class="screen">
-  <div class="topbar">
-    <button class="iconBtn" id="cropCancel">취소</button>
-    <div class="title">모서리 조정</div>
-    <button class="iconBtn right" id="cropAuto" style="color:var(--amber)">자동 인식</button>
-  </div>
-  <div id="cropWrap"><div id="cropStage"><canvas id="cropCanvas"></canvas><svg id="cropSvg"></svg></div></div>
-  <div class="bottomActs">
-    <button class="btn ghost" id="cropFull">전체 프레임</button>
-    <button class="btn primary" id="cropOk">적용</button>
   </div>
 </section>
 
@@ -361,9 +350,103 @@
 <input type="file" id="inGallery" accept="image/*" multiple>
 
 <script>
-/* =====================================================================
-   Document detection (pure functions, no DOM)
-   ===================================================================== */
+const $=id=>document.getElementById(id);
+const detCv=document.createElement('canvas'), detCtx=detCv.getContext('2d',{willReadFrequently:true});
+const S={
+  docs:[], sort:'time',                               // library always opens sorted by time
+  session:{docId:null,returnTo:'lib',count:0},        // the document currently receiving scanned pages
+  cur:null, queue:[], pending:null, retakeIdx:null, openDoc:null,
+};
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),2400);}
+function show(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  $('screen-'+name).classList.add('active');
+}
+const nextFrame=()=>new Promise(r=>requestAnimationFrame(()=>setTimeout(r,16)));
+const pad=n=>String(n).padStart(2,'0');
+function fmtSize(b){ if(b<1024) return b+' B'; if(b<1048576) return (b/1024).toFixed(0)+' KB'; return (b/1048576).toFixed(1)+' MB'; }
+function fmtDate(t){ const d=new Date(t); return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function defaultName(t){ const d=new Date(t); return `스캔 ${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+const toBlob=(cv,type,q)=>new Promise(r=>cv.toBlob(r,type,q));
+const blobToDataURL=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(b);});
+function blobToCanvas(b){
+  return new Promise(res=>{
+    const url=URL.createObjectURL(b), img=new Image();
+    img.onload=()=>{const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;
+      c.getContext('2d').drawImage(img,0,0);URL.revokeObjectURL(url);res(c);};
+    img.onerror=()=>{URL.revokeObjectURL(url);res(null);};
+    img.src=url;
+  });
+}
+
+/* ---------- storage (IndexedDB, in-memory fallback) ---------- */
+const DB={ db:null, mem:new Map(), ok:true,
+  open(){
+    return new Promise(res=>{
+      try{
+        const r=indexedDB.open('scanline',1);
+        r.onupgradeneeded=()=>r.result.createObjectStore('docs',{keyPath:'id'});
+        r.onsuccess=()=>{DB.db=r.result;res();};
+        r.onerror=()=>{DB.ok=false;res();};
+        r.onblocked=()=>{DB.ok=false;res();};
+      }catch(e){DB.ok=false;res();}
+    });
+  },
+  tx(mode,fn){
+    return new Promise(res=>{
+      if(!DB.db){res(null);return;}
+      try{
+        const t=DB.db.transaction('docs',mode), st=t.objectStore('docs'), rq=fn(st);
+        t.oncomplete=()=>res(rq?rq.result:true);
+        t.onerror=t.onabort=()=>{DB.ok=false;res(null);};
+      }catch(e){DB.ok=false;res(null);}
+    });
+  },
+  async all(){ if(!DB.db) return Array.from(DB.mem.values()); return (await DB.tx('readonly',s=>s.getAll()))||[]; },
+  async put(d){ DB.mem.set(d.id,d); if(DB.db) await DB.tx('readwrite',s=>s.put(d)); },
+  async del(id){ DB.mem.delete(id); if(DB.db) await DB.tx('readwrite',s=>s.delete(id)); },
+};
+
+async function loadLib(){ S.docs=await DB.all(); renderLib(); }
+
+/* ---------- library ---------- */
+function sortedDocs(){
+  const a=S.docs.slice();
+  if(S.sort==='name') a.sort((x,y)=>x.name.localeCompare(y.name,'ko',{numeric:true,sensitivity:'base'}));
+  else if(S.sort==='size') a.sort((x,y)=>y.size-x.size||y.createdAt-x.createdAt);
+  else a.sort((x,y)=>y.createdAt-x.createdAt);
+  return a;
+}
+function esc(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function renderLib(){
+  const g=$('libGrid'), meta=$('libMeta');
+  if(!S.docs.length){
+    meta.textContent='';
+    g.style.display='block';
+    g.innerHTML=`<div class="empty">
+      <svg viewBox="0 0 64 64" fill="none"><rect x="14" y="8" width="36" height="48" rx="4" stroke="#8b92a3" stroke-width="2.5"/>
+      <line x1="21" y1="20" x2="43" y2="20" stroke="#8b92a3" stroke-width="2.5"/><line x1="21" y1="28" x2="43" y2="28" stroke="#8b92a3" stroke-width="2.5"/>
+      <line x1="21" y1="36" x2="34" y2="36" stroke="#8b92a3" stroke-width="2.5"/><rect x="8" y="40" width="48" height="4" rx="2" fill="#ffb92b"/></svg>
+      <h2>아직 스캔한 문서가 없어요</h2>
+      <p>아래 <b>스캔</b> 버튼을 눌러 문서를 찍어 보세요.<br>찍으면 종이 영역을 자동으로 찾아 크롭해요.</p></div>`;
+    return;
+  }
+  g.style.display='';
+  const label={time:'시간순 · 최신 먼저',name:'이름순 · 가나다',size:'크기순 · 큰 것 먼저'}[S.sort];
+  meta.textContent=`${S.docs.length}개 문서 · ${label}`;
+  g.innerHTML=sortedDocs().map(d=>`
+    <div class="dcard" data-id="${d.id}">
+      <div class="th"><img src="${d.thumb}" alt=""><span class="pg">${d.pages.length}p</span></div>
+      <div class="info"><div class="nm">${esc(d.name)}</div>
+      <div class="mt">${fmtDate(d.createdAt)}<br>${fmtSize(d.size)}</div></div>
+    </div>`).join('');
+  g.querySelectorAll('.dcard').forEach(c=>c.onclick=()=>openDocument(c.dataset.id));
+}
+$('sortSel').onchange=e=>{S.sort=e.target.value;renderLib();};
+function resetSort(){ S.sort='time'; $('sortSel').value='time'; }
+
+
+/* ===== document detection (fallback, pure JS) ===== */
 //#DET-START
 function boxBlur(src,w,h,r){
   const tmp=new Float32Array(w*h), out=new Uint8Array(w*h), k=2*r+1;
@@ -502,224 +585,347 @@ function detectFromGray(gray,w,h){
 }
 //#DET-END
 
-/* =====================================================================
-   App
-   ===================================================================== */
-const $=id=>document.getElementById(id);
-const video=$('video');
-const detCv=document.createElement('canvas'), detCtx=detCv.getContext('2d',{willReadFrequently:true});
-
-const S={
-  docs:[],            // library records (without nothing hidden; blobs live in each record)
-  sort:'time',        // always starts as time order on every launch
-  batch:[],           // [{canvas,thumb}] pages scanned in the current session
-  appendTo:null,      // doc id when adding pages to an existing doc
-  cur:null, queue:[], from:'cam',
-  stream:null, camOn:false, torch:false,
-  openDoc:null,
-};
-
-function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),2200);}
-function show(name){
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  $('screen-'+name).classList.add('active');
-  if(name==='cam') startCamera(); else stopCamera();
-}
-const nextFrame=()=>new Promise(r=>requestAnimationFrame(()=>setTimeout(r,16)));
-const pad=n=>String(n).padStart(2,'0');
-function fmtSize(b){ if(b<1024) return b+' B'; if(b<1048576) return (b/1024).toFixed(0)+' KB'; return (b/1048576).toFixed(1)+' MB'; }
-function fmtDate(t){ const d=new Date(t); return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
-function defaultName(t){ const d=new Date(t); return `스캔 ${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
-const toBlob=(cv,type,q)=>new Promise(r=>cv.toBlob(r,type,q));
-const blobToDataURL=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(b);});
-function blobToCanvas(b){
-  return new Promise(res=>{
-    const url=URL.createObjectURL(b), img=new Image();
-    img.onload=()=>{const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;
-      c.getContext('2d').drawImage(img,0,0);URL.revokeObjectURL(url);res(c);};
-    img.onerror=()=>{URL.revokeObjectURL(url);res(null);};
-    img.src=url;
-  });
-}
-
-/* ---------- storage (IndexedDB, in-memory fallback) ---------- */
-const DB={ db:null, mem:new Map(), ok:true,
-  open(){
-    return new Promise(res=>{
+/* ===== OpenCV document detection ===== */
+//#CVDET-START
+/* ---------- OpenCV.js loading ---------- */
+const CV_URL='https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js';
+let CV=null, cvPromise=null;
+function loadCV(){
+  if(cvPromise) return cvPromise;
+  cvPromise=new Promise(res=>{
+    const s=document.createElement('script'); s.src=CV_URL; s.async=true;
+    s.onerror=()=>res(false);
+    s.onload=()=>{
       try{
-        const r=indexedDB.open('scanline',1);
-        r.onupgradeneeded=()=>r.result.createObjectStore('docs',{keyPath:'id'});
-        r.onsuccess=()=>{DB.db=r.result;res();};
-        r.onerror=()=>{DB.ok=false;res();};
-        r.onblocked=()=>{DB.ok=false;res();};
-      }catch(e){DB.ok=false;res();}
-    });
-  },
-  tx(mode,fn){
-    return new Promise(res=>{
-      if(!DB.db){res(null);return;}
-      try{
-        const t=DB.db.transaction('docs',mode), st=t.objectStore('docs'), rq=fn(st);
-        t.oncomplete=()=>res(rq?rq.result:true);
-        t.onerror=t.onabort=()=>{DB.ok=false;res(null);};
-      }catch(e){DB.ok=false;res(null);}
-    });
-  },
-  async all(){ if(!DB.db) return Array.from(DB.mem.values()); return (await DB.tx('readonly',s=>s.getAll()))||[]; },
-  async put(d){ DB.mem.set(d.id,d); if(DB.db) await DB.tx('readwrite',s=>s.put(d)); },
-  async del(id){ DB.mem.delete(id); if(DB.db) await DB.tx('readwrite',s=>s.delete(id)); },
-};
-
-async function loadLib(){ S.docs=await DB.all(); renderLib(); }
-
-/* ---------- library ---------- */
-function sortedDocs(){
-  const a=S.docs.slice();
-  if(S.sort==='name') a.sort((x,y)=>x.name.localeCompare(y.name,'ko',{numeric:true,sensitivity:'base'}));
-  else if(S.sort==='size') a.sort((x,y)=>y.size-x.size||y.createdAt-x.createdAt);
-  else a.sort((x,y)=>y.createdAt-x.createdAt);
-  return a;
-}
-function esc(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function renderLib(){
-  const g=$('libGrid'), meta=$('libMeta');
-  if(!S.docs.length){
-    meta.textContent='';
-    g.style.display='block';
-    g.innerHTML=`<div class="empty">
-      <svg viewBox="0 0 64 64" fill="none"><rect x="14" y="8" width="36" height="48" rx="4" stroke="#8b92a3" stroke-width="2.5"/>
-      <line x1="21" y1="20" x2="43" y2="20" stroke="#8b92a3" stroke-width="2.5"/><line x1="21" y1="28" x2="43" y2="28" stroke="#8b92a3" stroke-width="2.5"/>
-      <line x1="21" y1="36" x2="34" y2="36" stroke="#8b92a3" stroke-width="2.5"/><rect x="8" y="40" width="48" height="4" rx="2" fill="#ffb92b"/></svg>
-      <h2>아직 스캔한 문서가 없어요</h2>
-      <p>아래 <b>스캔</b> 버튼을 눌러 문서를 찍어 보세요.<br>찍으면 종이 영역을 자동으로 찾아 크롭해요.</p></div>`;
-    return;
-  }
-  g.style.display='';
-  const label={time:'시간순 · 최신 먼저',name:'이름순 · 가나다',size:'크기순 · 큰 것 먼저'}[S.sort];
-  meta.textContent=`${S.docs.length}개 문서 · ${label}`;
-  g.innerHTML=sortedDocs().map(d=>`
-    <div class="dcard" data-id="${d.id}">
-      <div class="th"><img src="${d.thumb}" alt=""><span class="pg">${d.pages.length}p</span></div>
-      <div class="info"><div class="nm">${esc(d.name)}</div>
-      <div class="mt">${fmtDate(d.createdAt)}<br>${fmtSize(d.size)}</div></div>
-    </div>`).join('');
-  g.querySelectorAll('.dcard').forEach(c=>c.onclick=()=>openDocument(c.dataset.id));
-}
-$('sortSel').onchange=e=>{S.sort=e.target.value;renderLib();};
-function resetSort(){ S.sort='time'; $('sortSel').value='time'; }
-
-/* ---------- detection wrapper ---------- */
-function detect(src,sw,sh){
-  const s=240/Math.max(sw,sh);
-  const w=Math.max(16,Math.round(sw*s)), h=Math.max(16,Math.round(sh*s));
-  detCv.width=w; detCv.height=h;
-  detCtx.drawImage(src,0,0,w,h);
-  const d=detCtx.getImageData(0,0,w,h).data;
-  const g=new Uint8Array(w*h);
-  for(let i=0,j=0;i<g.length;i++,j+=4) g[i]=(d[j]*77+d[j+1]*150+d[j+2]*29)>>8;
-  const q=detectFromGray(g,w,h);
-  return q?q.map(p=>[p[0]/s,p[1]/s]):null;
-}
-function defaultCorners(w,h){
-  const m=0.06;
-  return [[w*m,h*m],[w*(1-m),h*m],[w*(1-m),h*(1-m)],[w*m,h*(1-m)]];
-}
-
-/* ---------- camera (plain preview; document is found after the shot) ---------- */
-async function startCamera(){
-  updateCamUI();
-  if(S.camOn) return;
-  $('camFallback').classList.remove('show');
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
-    $('fbMsg').textContent='이 환경에서는 실시간 카메라를 사용할 수 없어요(https 연결 필요). 아래 버튼으로 카메라 앱에서 촬영해도 찍은 뒤 문서를 자동으로 찾아요.';
-    $('camFallback').classList.add('show'); return;
-  }
-  try{
-    S.stream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:{ideal:'environment'},width:{ideal:2560},height:{ideal:1440}},audio:false});
-  }catch(e){
-    $('fbMsg').textContent='카메라 권한이 거부됐거나 사용할 수 없어요. 브라우저 설정에서 카메라를 허용하거나, 아래 버튼으로 카메라 앱에서 촬영해 주세요.';
-    $('camFallback').classList.add('show'); return;
-  }
-  if(!$('screen-cam').classList.contains('active')){ S.stream.getTracks().forEach(t=>t.stop()); S.stream=null; return; }
-  video.srcObject=S.stream;
-  try{await video.play();}catch(e){}
-  S.camOn=true;
-  const tr=S.stream.getVideoTracks()[0];
-  try{
-    const caps=tr.getCapabilities?tr.getCapabilities():{};
-    $('torchBtn').style.display=caps.torch?'':'none';
-    if(caps.focusMode&&caps.focusMode.includes('continuous')) tr.applyConstraints({advanced:[{focusMode:'continuous'}]}).catch(()=>{});
-  }catch(e){}
-  S.torch=false; $('torchBtn').classList.remove('on');
-}
-function stopCamera(){
-  S.camOn=false;
-  if(S.stream){S.stream.getTracks().forEach(t=>t.stop());S.stream=null;}
-  video.srcObject=null;
-}
-function updateCamUI(){
-  const n=S.batch.length;
-  $('camDone').style.display=n?'':'none';
-  $('lastBtn').classList.toggle('ph',!n);
-  $('camBadge').textContent=n;
-  if(n) $('lastThumb').src=S.batch[n-1].thumb;
-}
-async function shoot(){
-  if(!S.camOn||!video.videoWidth) return;
-  const w=video.videoWidth,h=video.videoHeight;
-  const cv=document.createElement('canvas'); cv.width=w;cv.height=h;
-  cv.getContext('2d').drawImage(video,0,0,w,h);
-  $('flashFx').classList.remove('go'); void $('flashFx').offsetWidth; $('flashFx').classList.add('go');
-  if(navigator.vibrate) navigator.vibrate(25);
-  S.from='cam';
-  await analyzeAndOpen(cv);
-}
-async function analyzeAndOpen(cv){
-  // show the result screen first with a spinner, then find the document in the captured photo
-  S.cur=null; $('busyMsg').textContent='문서를 찾는 중…';
-  show('res'); setBusy(true);
-  const rc=$('resCanvas'); rc.width=cv.width; rc.height=cv.height; rc.getContext('2d').drawImage(cv,0,0);
-  await nextFrame();
-  let c=detect(cv,cv.width,cv.height), found=!!c;
-  if(!c) c=defaultCorners(cv.width,cv.height);
-  if(!found) toast('문서를 찾지 못했어요. "크롭 조정"에서 직접 맞출 수 있어요');
-  await openResult(cv,c);
-}
-
-/* ---------- loading from file ---------- */
-function loadFile(file){
-  return new Promise(res=>{
-    const url=URL.createObjectURL(file), img=new Image();
-    img.onload=()=>{
-      const MAX=2800, sc=Math.min(1,MAX/Math.max(img.naturalWidth,img.naturalHeight));
-      const w=Math.round(img.naturalWidth*sc), h=Math.round(img.naturalHeight*sc);
-      const cv=document.createElement('canvas'); cv.width=w;cv.height=h;
-      cv.getContext('2d').drawImage(img,0,0,w,h);
-      URL.revokeObjectURL(url); res(cv);
+        const c=window.cv;
+        if(!c){ res(false); return; }
+        if(c.Mat){ CV=c; res(true); return; }
+        if(typeof c.then==='function'){ c.then(m=>{ CV=(m&&m.Mat)?m:window.cv; res(!!(CV&&CV.Mat)); }); return; }
+        c.onRuntimeInitialized=()=>{ CV=window.cv; res(!!(CV&&CV.Mat)); };
+      }catch(e){ res(false); }
     };
-    img.onerror=()=>{URL.revokeObjectURL(url);res(null);};
-    img.src=url;
+    document.head.appendChild(s);
+    setTimeout(()=>res(false),90000);
   });
+  return cvPromise;
 }
-async function nextFromQueue(){
-  while(S.queue.length){
-    const f=S.queue.shift();
-    const cv=await loadFile(f);
-    if(!cv){toast('이미지를 열 수 없어요');continue;}
-    await analyzeAndOpen(cv); return true;
-  }
-  return false;
-}
-function pickFiles(e,from){
-  const files=Array.from(e.target.files||[]); e.target.value='';
-  if(!files.length) return;
-  S.queue=files; S.from=from;
-  nextFromQueue();
-}
-$('inCapture').onchange=e=>pickFiles(e,'cam');
-$('inGallery').onchange=e=>pickFiles(e,S.galleryFrom||'lib');
 
+/* ---------- geometry helpers ---------- */
+function orderTLTR(q){
+  const s=q.map(p=>p[0]+p[1]), d=q.map(p=>p[1]-p[0]);
+  const tl=q[s.indexOf(Math.min(...s))], br=q[s.indexOf(Math.max(...s))];
+  const tr=q[d.indexOf(Math.min(...d))], bl=q[d.indexOf(Math.max(...d))];
+  const o=[tl,tr,br,bl];
+  return new Set(o).size===4?o:orderQuad(q);
+}
+function quadMetrics(q,w,h){
+  let ok=true;
+  const sides=[];
+  for(let i=0;i<4;i++){
+    const a=q[i],b=q[(i+1)%4],c=q[(i+2)%4];
+    sides.push(Math.hypot(b[0]-a[0],b[1]-a[1]));
+    const v1=[a[0]-b[0],a[1]-b[1]], v2=[c[0]-b[0],c[1]-b[1]];
+    const cos=(v1[0]*v2[0]+v1[1]*v2[1])/(Math.hypot(...v1)*Math.hypot(...v2)+1e-9);
+    const ang=Math.acos(Math.max(-1,Math.min(1,cos)))*180/Math.PI;
+    if(ang<52||ang>128) ok=false;
+    const cr=(b[0]-a[0])*(c[1]-b[1])-(b[1]-a[1])*(c[0]-b[0]);
+    if(cr<=0) ok=false;                     // must be clockwise TL,TR,BR,BL in image coords
+  }
+  const m=Math.min(w,h);
+  if(Math.min(...sides)<0.12*m) ok=false;
+  if(Math.max(sides[0],sides[2])/Math.max(1,Math.min(sides[0],sides[2]))>2.6) ok=false;
+  if(Math.max(sides[1],sides[3])/Math.max(1,Math.min(sides[1],sides[3]))>2.6) ok=false;
+  return ok;
+}
+function sideSupport(q,edgeD,w,h){
+  const data=edgeD.data, per=[];
+  for(let i=0;i<4;i++){
+    const a=q[i],b=q[(i+1)%4], L=Math.hypot(b[0]-a[0],b[1]-a[1]), n=Math.max(8,Math.round(L/2));
+    let hit=0,tot=0;
+    for(let k=0;k<=n;k++){
+      const t=0.04+0.92*k/n, x=Math.round(a[0]+(b[0]-a[0])*t), y=Math.round(a[1]+(b[1]-a[1])*t);
+      tot++;
+      if(x<=1||y<=1||x>=w-2||y>=h-2){ hit+=0.35; continue; }   // side runs along the frame: weak evidence
+      if(data[y*w+x]) hit++;
+    }
+    per.push(hit/tot);
+  }
+  return per;
+}
+
+/* ---------- candidate generation ---------- */
+function detectCV(srcCanvas){
+  const W=srcCanvas.width,H=srcCanvas.height, sc=Math.min(1,640/Math.max(W,H));
+  const w=Math.max(32,Math.round(W*sc)), h=Math.max(32,Math.round(H*sc));
+  const sm=document.createElement('canvas'); sm.width=w; sm.height=h;
+  sm.getContext('2d').drawImage(srcCanvas,0,0,w,h);
+  const keep=[]; const T=m=>{keep.push(m);return m;};
+  const cands=[];
+  try{
+    const rgba=T(CV.imread(sm));
+    const rgb=T(new CV.Mat()); CV.cvtColor(rgba,rgb,CV.COLOR_RGBA2RGB);
+    const gray=T(new CV.Mat()); CV.cvtColor(rgb,gray,CV.COLOR_RGB2GRAY);
+    const blur=T(new CV.Mat()); CV.GaussianBlur(gray,blur,new CV.Size(5,5),0);
+    const k3=T(CV.getStructuringElement(CV.MORPH_RECT,new CV.Size(3,3)));
+    const kc=T(CV.getStructuringElement(CV.MORPH_RECT,new CV.Size(7,7)));
+    const kb=T(CV.getStructuringElement(CV.MORPH_RECT,new CV.Size(11,11)));
+    // reference edge map used for scoring
+    const edgeRef=T(new CV.Mat()); CV.Canny(blur,edgeRef,22,66);
+    const edgeD=T(new CV.Mat()); CV.dilate(edgeRef,edgeD,T(CV.getStructuringElement(CV.MORPH_RECT,new CV.Size(5,5))));
+    const minArea=0.08*w*h, imgArea=w*h;
+
+    const addCand=(q0,hullArea,tag)=>{
+      let q=orderTLTR(q0);
+      if(!quadMetrics(q,w,h)) return;
+      const A=polyArea(q), qa=A/imgArea;
+      if(qa<0.08||qa>0.965) return;
+      const fill=hullArea/A;
+      if(fill<0.82||fill>1.12) return;
+      const per=sideSupport(q,edgeD,w,h);
+      const mean=(per[0]+per[1]+per[2]+per[3])/4, mn=Math.min(...per);
+      const s=0.65*mean+0.35*mn;
+      const rect=1-Math.min(1,Math.abs(1-Math.min(fill,1)))*2;
+      const score=Math.pow(qa,0.55)*(0.12+0.88*s*s)*rect;
+      cands.push({q,score,conf:Math.min(1,s*rect*1.15),tag,qa,s});
+    };
+    const fromMask=(mask,tag)=>{
+      const cnts=new CV.MatVector(), hier=new CV.Mat();
+      CV.findContours(mask,cnts,hier,CV.RETR_LIST,CV.CHAIN_APPROX_SIMPLE);
+      const n=cnts.size();
+      for(let i=0;i<n;i++){
+        const c=cnts.get(i), area=CV.contourArea(c);
+        if(area<minArea){ c.delete(); continue; }
+        const hull=new CV.Mat(); CV.convexHull(c,hull,false,true);
+        const hullArea=CV.contourArea(hull), peri=CV.arcLength(hull,true);
+        let q=null;
+        for(const e of [0.012,0.018,0.026,0.036,0.05,0.07]){
+          const ap=new CV.Mat(); CV.approxPolyDP(hull,ap,e*peri,true);
+          if(ap.rows===4){ q=[]; for(let k=0;k<4;k++) q.push([ap.data32S[k*2],ap.data32S[k*2+1]]); ap.delete(); break; }
+          ap.delete();
+        }
+        if(q) addCand(q,hullArea,tag);
+        // also offer the rotated bounding rectangle (robust when corners are rounded or occluded)
+        const r=CV.minAreaRect(hull), pts=CV.RotatedRect.points(r);
+        addCand(pts.map(p=>[p.x,p.y]),hullArea,tag+'R');
+        c.delete(); hull.delete();
+      }
+      cnts.delete(); hier.delete();
+    };
+
+    // 1) edge maps at three sensitivities
+    for(const [lo,hi] of [[18,54],[35,105],[60,150]]){
+      const e=T(new CV.Mat()); CV.Canny(blur,e,lo,hi);
+      const d=T(new CV.Mat()); CV.dilate(e,d,k3);
+      const cl=T(new CV.Mat()); CV.morphologyEx(d,cl,CV.MORPH_CLOSE,kc);
+      fromMask(cl,'E');
+    }
+    // 2) global threshold (bright paper / dark paper)
+    const bin=T(new CV.Mat()); CV.threshold(blur,bin,0,255,CV.THRESH_BINARY|CV.THRESH_OTSU);
+    const binInv=T(new CV.Mat()); CV.bitwise_not(bin,binInv);
+    for(const m of [bin,binInv]){
+      const o=T(new CV.Mat()); CV.morphologyEx(m,o,CV.MORPH_OPEN,kc);
+      const c2=T(new CV.Mat()); CV.morphologyEx(o,c2,CV.MORPH_CLOSE,kb);
+      fromMask(c2,'T');
+    }
+    // 3) difference from the background colour (median colour of the frame border), in Lab
+    const lab=T(new CV.Mat()); CV.cvtColor(rgb,lab,CV.COLOR_RGB2Lab);
+    const bw=Math.max(3,Math.round(Math.min(w,h)*0.04)), samples=[[],[],[]];
+    const grab=(x0,y0,x1,y1)=>{ for(let y=y0;y<y1;y+=2) for(let x=x0;x<x1;x+=2){ const i=(y*w+x)*3; samples[0].push(lab.data[i]); samples[1].push(lab.data[i+1]); samples[2].push(lab.data[i+2]); } };
+    grab(0,0,w,bw); grab(0,h-bw,w,h); grab(0,bw,bw,h-bw); grab(w-bw,bw,w,h-bw);
+    const med=a=>{ a.sort((x,y)=>x-y); return a[a.length>>1]; };
+    const bg=[med(samples[0]),med(samples[1]),med(samples[2])];
+    const dist=T(new CV.Mat(h,w,CV.CV_8UC1));
+    for(let i=0,j=0;i<w*h;i++,j+=3){
+      const dl=lab.data[j]-bg[0], da=lab.data[j+1]-bg[1], db=lab.data[j+2]-bg[2];
+      dist.data[i]=Math.min(255,Math.sqrt(dl*dl*0.8+da*da*1.6+db*db*1.6)*3.2);
+    }
+    const dblur=T(new CV.Mat()); CV.GaussianBlur(dist,dblur,new CV.Size(7,7),0);
+    const dbin=T(new CV.Mat()); CV.threshold(dblur,dbin,0,255,CV.THRESH_BINARY|CV.THRESH_OTSU);
+    const d1=T(new CV.Mat()); CV.morphologyEx(dbin,d1,CV.MORPH_OPEN,kc);
+    const d2=T(new CV.Mat()); CV.morphologyEx(d1,d2,CV.MORPH_CLOSE,kb);
+    fromMask(d2,'D');
+  }catch(err){
+    console.warn('detectCV',err);
+  }finally{
+    keep.forEach(m=>{ try{m.delete();}catch(e){} });
+  }
+  if(!cands.length) return null;
+  cands.sort((a,b)=>b.score-a.score);
+  const best=cands[0];
+  let q=best.q.map(p=>[p[0]/sc,p[1]/sc]);
+  q=refineQuad(srcCanvas,q);
+  return {quad:q,conf:best.conf,tag:best.tag};
+}
+
+/* ---------- sub-pixel refinement on the full-resolution photo ---------- */
+function fitLine(pts){          // total least squares -> {p:[x,y], d:[dx,dy]}
+  let mx=0,my=0; pts.forEach(p=>{mx+=p[0];my+=p[1];}); mx/=pts.length; my/=pts.length;
+  let sxx=0,sxy=0,syy=0; pts.forEach(p=>{const x=p[0]-mx,y=p[1]-my; sxx+=x*x; sxy+=x*y; syy+=y*y;});
+  const th=0.5*Math.atan2(2*sxy,sxx-syy);
+  return {p:[mx,my],d:[Math.cos(th),Math.sin(th)]};
+}
+function distToLine(l,p){ return Math.abs((p[0]-l.p[0])*l.d[1]-(p[1]-l.p[1])*l.d[0]); }
+function intersect(l1,l2){
+  const det=l1.d[0]*(-l2.d[1])-l1.d[1]*(-l2.d[0]);
+  if(Math.abs(det)<1e-6) return null;
+  const rx=l2.p[0]-l1.p[0], ry=l2.p[1]-l1.p[1];
+  const t=(rx*(-l2.d[1])-ry*(-l2.d[0]))/det;
+  return [l1.p[0]+l1.d[0]*t,l1.p[1]+l1.d[1]*t];
+}
+function refineQuad(srcCanvas,q){
+  if(!CV) return q;
+  const W=srcCanvas.width,H=srcCanvas.height, diag=Math.hypot(W,H);
+  const sc=Math.min(1,2000/Math.max(W,H));
+  const rc=document.createElement('canvas'); rc.width=Math.round(W*sc); rc.height=Math.round(H*sc);
+  rc.getContext('2d').drawImage(srcCanvas,0,0,rc.width,rc.height);
+  const w=rc.width,h=rc.height, keep=[];
+  try{
+    const rgba=CV.imread(rc); keep.push(rgba);
+    const g=new CV.Mat(); keep.push(g); CV.cvtColor(rgba,g,CV.COLOR_RGBA2GRAY);
+    const b=new CV.Mat(); keep.push(b); CV.GaussianBlur(g,b,new CV.Size(5,5),0);
+    const I=b.data;
+    const samp=(x,y)=>{
+      x=Math.min(w-1.001,Math.max(0,x)); y=Math.min(h-1.001,Math.max(0,y));
+      const x0=x|0,y0=y|0,fx=x-x0,fy=y-y0, i=y0*w+x0;
+      return I[i]*(1-fx)*(1-fy)+I[i+1]*fx*(1-fy)+I[i+w]*(1-fx)*fy+I[i+w+1]*fx*fy;
+    };
+    const Q=q.map(p=>[p[0]*sc,p[1]*sc]);
+    const R=Math.max(6,0.014*Math.hypot(w,h));
+    const lines=[];
+    for(let i=0;i<4;i++){
+      const a=Q[i],c=Q[(i+1)%4], dx=c[0]-a[0], dy=c[1]-a[1], L=Math.hypot(dx,dy);
+      const nx=-dy/L, ny=dx/L;
+      const pts=[], signs=[];
+      const N=Math.max(24,Math.round(L/10));
+      for(let k=0;k<=N;k++){
+        const t=0.08+0.84*k/N, px=a[0]+dx*t, py=a[1]+dy*t;
+        let bestG=0,bestD=0;
+        for(let d=-R;d<=R;d+=0.75){
+          const g=samp(px+nx*(d+1.5),py+ny*(d+1.5))-samp(px+nx*(d-1.5),py+ny*(d-1.5));
+          if(Math.abs(g)>Math.abs(bestG)){ bestG=g; bestD=d; }
+        }
+        if(Math.abs(bestG)>6){ pts.push([px+nx*bestD,py+ny*bestD]); signs.push(Math.sign(bestG)); }
+      }
+      if(pts.length<N*0.35){ lines.push(null); continue; }
+      const pos=signs.filter(s=>s>0).length, pol=pos>=signs.length/2?1:-1;
+      let use=pts.filter((_,j)=>signs[j]===pol);
+      if(use.length<N*0.3){ lines.push(null); continue; }
+      let ln=fitLine(use);
+      for(let it=0;it<3;it++){
+        const ds=use.map(p=>distToLine(ln,p)).sort((x,y)=>x-y);
+        const thr=Math.max(1.2,ds[Math.floor(ds.length*0.7)]*1.8);
+        const nu=use.filter(p=>distToLine(ln,p)<=thr);
+        if(nu.length<8||nu.length===use.length) break;
+        use=nu; ln=fitLine(use);
+      }
+      lines.push(ln);
+    }
+    const out=[];
+    for(let i=0;i<4;i++){
+      const l1=lines[(i+3)%4], l2=lines[i];
+      let p=(l1&&l2)?intersect(l1,l2):null;
+      if(!p||Math.hypot(p[0]-Q[i][0],p[1]-Q[i][1])>R*2.2) p=Q[i];
+      out.push([p[0]/sc,p[1]/sc]);
+    }
+    return out;
+  }catch(e){ console.warn('refine',e); return q; }
+  finally{ keep.forEach(m=>{try{m.delete();}catch(e){}}); }
+}
+//#CVDET-END
+
+/* ===== OpenCV scan post-processing ===== */
+//#CVPROC-START
+const oddK=n=>{ n=Math.round(n); return n%2?n:n+1; };
+const clampN=(v,a,b)=>Math.min(b,Math.max(a,v));
+function matToCanvas(m){ const c=document.createElement('canvas'); CV.imshow(c,m); return c; }
+
+/* perspective warp with bicubic sampling */
+function cvWarp(srcCanvas,q){
+  const [tl,tr,br,bl]=q, d=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+  let ow=Math.max(d(tl,tr),d(bl,br)), oh=Math.max(d(tl,bl),d(tr,br));
+  const k=Math.min(1,2600/Math.max(ow,oh));
+  ow=Math.max(200,Math.round(ow*k)); oh=Math.max(200,Math.round(oh*k));
+  const keep=[]; const T=m=>{keep.push(m);return m;};
+  try{
+    const src=T(CV.imread(srcCanvas));
+    const a=T(CV.matFromArray(4,1,CV.CV_32FC2,[tl[0],tl[1],tr[0],tr[1],br[0],br[1],bl[0],bl[1]]));
+    const b=T(CV.matFromArray(4,1,CV.CV_32FC2,[0,0,ow,0,ow,oh,0,oh]));
+    const M=T(CV.getPerspectiveTransform(a,b));
+    const dst=T(new CV.Mat());
+    CV.warpPerspective(src,dst,M,new CV.Size(ow,oh),CV.INTER_CUBIC,CV.BORDER_REPLICATE,new CV.Scalar());
+    return matToCanvas(dst);
+  }finally{ keep.forEach(m=>{try{m.delete();}catch(e){}}); }
+}
+
+/* flatten uneven lighting / shadows: divide by an estimate of the paper brightness */
+function cvFlatten(cv){
+  const keep=[]; const T=m=>{keep.push(m);return m;};
+  try{
+    const w=cv.width,h=cv.height;
+    const rgba=T(CV.imread(cv)), rgb=T(new CV.Mat()); CV.cvtColor(rgba,rgb,CV.COLOR_RGBA2RGB);
+    const gray=T(new CV.Mat()); CV.cvtColor(rgb,gray,CV.COLOR_RGB2GRAY);
+    const sw=Math.max(64,Math.round(w/4)), sh=Math.max(48,Math.round(h*sw/w));
+    const small=T(new CV.Mat()); CV.resize(gray,small,new CV.Size(sw,sh),0,0,CV.INTER_AREA);
+    const k=oddK(clampN(sw/85,3,13));
+    const dil=T(new CV.Mat()); CV.dilate(small,dil,T(CV.getStructuringElement(CV.MORPH_ELLIPSE,new CV.Size(k,k))));
+    const med=T(new CV.Mat()); CV.medianBlur(dil,med,oddK(clampN(sw/45,3,31)));   // smooths text ghosts out of the estimate
+    const sm2=T(new CV.Mat()); CV.GaussianBlur(med,sm2,new CV.Size(oddK(clampN(sw/14,5,61)),oddK(clampN(sw/14,5,61))),0);
+    // limit the gain so large dark / coloured areas are not blown out
+    const hist=new Array(256).fill(0); for(let i=0;i<sm2.data.length;i++) hist[sm2.data[i]]++;
+    let acc=0,p90=255; for(let i=0;i<256;i++){ acc+=hist[i]; if(acc>=sm2.data.length*0.9){ p90=i; break; } }
+    const floor=Math.max(30,p90*0.5);
+    const bg1=T(new CV.Mat()); CV.max(sm2,T(new CV.Mat(sm2.rows,sm2.cols,CV.CV_8UC1,new CV.Scalar(floor))),bg1);
+    // coloured areas (low colourfulness = shadow on paper, high = real content): only correct the former
+    const smRgb=T(new CV.Mat()); CV.resize(rgb,smRgb,new CV.Size(sw,sh),0,0,CV.INTER_AREA);
+    const hsv=T(new CV.Mat()); CV.cvtColor(smRgb,hsv,CV.COLOR_RGB2HSV);
+    const sat=T(new CV.Mat()); const hv=T(new CV.MatVector()); CV.split(hsv,hv); const sCh=hv.get(1); keep.push(sCh);
+    CV.GaussianBlur(sCh,sat,new CV.Size(oddK(clampN(sw/30,5,31)),oddK(clampN(sw/30,5,31))),0);
+    for(let i=0;i<bg1.data.length;i++){
+      const S=sat.data[i]/255, wgt=clampN(1-(S-0.14)/0.30,0.12,1), gain=255/bg1.data[i];
+      bg1.data[i]=Math.min(255,Math.max(1,255/(1+(gain-1)*wgt)));
+    }
+    const bgBig=T(new CV.Mat()); CV.resize(bg1,bgBig,new CV.Size(w,h),0,0,CV.INTER_LINEAR);
+    const bg3=T(new CV.Mat()); const ch=T(new CV.MatVector()); ch.push_back(bgBig); ch.push_back(bgBig); ch.push_back(bgBig); CV.merge(ch,bg3);
+    const out=T(new CV.Mat()); CV.divide(rgb,bg3,out,255,-1);
+    return matToCanvas(out);
+  }finally{ keep.forEach(m=>{try{m.delete();}catch(e){}}); }
+}
+
+function lutMat(fn){ const a=new Uint8Array(256); for(let i=0;i<256;i++) a[i]=Math.round(clampN(fn(i/255),0,1)*255); return CV.matFromArray(1,256,CV.CV_8UC1,Array.from(a)); }
+const smoothstepN=(a,b,x)=>{ const t=clampN((x-a)/(b-a),0,1); return t*t*(3-2*t); };
+
+function cvFilter(base,norm,mode){
+  if(mode==='original') return base;
+  const keep=[]; const T=m=>{keep.push(m);return m;};
+  try{
+    const w=norm.width;
+    const rgba=T(CV.imread(norm)), rgb=T(new CV.Mat()); CV.cvtColor(rgba,rgb,CV.COLOR_RGBA2RGB);
+    const sigma=Math.max(0.8,w/2200);
+    const sharpen=(m,amt)=>{ const bl=T(new CV.Mat()), o=T(new CV.Mat()); CV.GaussianBlur(m,bl,new CV.Size(0,0),sigma); CV.addWeighted(m,1+amt,bl,-amt,0,o); return o; };
+    let out;
+    if(mode==='magic'){
+      const lut=T(lutMat(v=>{ const t=clampN((v-0.05)/(0.93-0.05),0,1); return 0.55*t+0.45*(t*t*(3-2*t)); }));
+      const tone=T(new CV.Mat()); CV.LUT(rgb,lut,tone);
+      out=sharpen(tone,0.9);
+    }else if(mode==='gray'){
+      const g=T(new CV.Mat()); CV.cvtColor(rgb,g,CV.COLOR_RGB2GRAY);
+      const lut=T(lutMat(v=>{ const t=clampN((v-0.08)/(0.92-0.08),0,1); return 0.4*t+0.6*(t*t*(3-2*t)); }));
+      const tone=T(new CV.Mat()); CV.LUT(g,lut,tone);
+      out=sharpen(tone,0.9);
+    }else{ // bw document: soft threshold around Otsu of the flattened page
+      const g=T(new CV.Mat()); CV.cvtColor(rgb,g,CV.COLOR_RGB2GRAY);
+      const gs=T(new CV.Mat()); CV.GaussianBlur(g,gs,new CV.Size(0,0),sigma*0.5);
+      const tmp=T(new CV.Mat()); const t=CV.threshold(gs,tmp,0,255,CV.THRESH_BINARY|CV.THRESH_OTSU);
+      const mid=clampN(t*0.95,105,175)/255, half=0.09;
+      const lut=T(lutMat(v=>smoothstepN(mid-half,mid+half,v)));
+      out=T(new CV.Mat()); CV.LUT(gs,lut,out);
+    }
+    return matToCanvas(out);
+  }finally{ keep.forEach(m=>{try{m.delete();}catch(e){}}); }
+}
+//#CVPROC-END
+
+/* ===== pure-JS fallback processing ===== */
 /* ---------- perspective warp ---------- */
 function solve8(A,b){
   const n=8;
@@ -824,149 +1030,266 @@ function applyFilter(base,norm,mode){
   }
   c.putImageData(id,0,0); return out;
 }
+
+/* ---------- engine wrappers (OpenCV first, pure-JS fallback if it cannot load) ---------- */
+function detectJS(src,sw,sh){
+  const s=240/Math.max(sw,sh);
+  const w=Math.max(16,Math.round(sw*s)), h=Math.max(16,Math.round(sh*s));
+  detCv.width=w; detCv.height=h; detCtx.drawImage(src,0,0,w,h);
+  const d=detCtx.getImageData(0,0,w,h).data, g=new Uint8Array(w*h);
+  for(let i=0,j=0;i<g.length;i++,j+=4) g[i]=(d[j]*77+d[j+1]*150+d[j+2]*29)>>8;
+  const q=detectFromGray(g,w,h);
+  return q?q.map(p=>[p[0]/s,p[1]/s]):null;
+}
+function defaultCorners(w,h){ const m=0.06; return [[w*m,h*m],[w*(1-m),h*m],[w*(1-m),h*(1-m)],[w*m,h*(1-m)]]; }
+function detectDoc(cv){                     // -> {quad,conf} | null
+  if(CV){ try{ const r=detectCV(cv); if(r) return {quad:r.quad,conf:r.conf}; return null; }catch(e){ console.warn(e); } }
+  const q=detectJS(cv,cv.width,cv.height); return q?{quad:q,conf:0.3}:null;
+}
+function warpAny(src,q){ if(CV){ try{ return cvWarp(src,q); }catch(e){ console.warn(e); } } return warp(src,q); }
+function flattenAny(cv){ if(CV){ try{ return cvFlatten(cv); }catch(e){ console.warn(e); } } return normalize(cv); }
+function filterAny(base,norm,mode){ if(CV){ try{ return cvFilter(base,norm,mode); }catch(e){ console.warn(e); } } return applyFilter(base,norm,mode); }
 const FILTERS=[['magic','매직 컬러'],['original','원본'],['bw','흑백 문서'],['gray','그레이']];
 
-/* ---------- result screen ---------- */
-function setBusy(v){$('busy').classList.toggle('show',v);}
-async function openResult(srcCv,corners){
-  S.cur={src:srcCv,corners,rot:0,filter:'magic',base0:null,base:null,norm:null,out:null};
-  if(!$('screen-res').classList.contains('active')) show('res');
-  $('busyMsg').textContent='문서를 보정하는 중…'; setBusy(true); await nextFrame();
-  S.cur.base0=warp(srcCv,corners);
-  await rebuild();
+/* ---------- photos in: phone camera app / gallery ---------- */
+function loadFile(file){
+  return new Promise(res=>{
+    const url=URL.createObjectURL(file), img=new Image();
+    img.onload=()=>{
+      const MAX=3000, sc=Math.min(1,MAX/Math.max(img.naturalWidth,img.naturalHeight));
+      const w=Math.round(img.naturalWidth*sc), h=Math.round(img.naturalHeight*sc);
+      const cv=document.createElement('canvas'); cv.width=w;cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      URL.revokeObjectURL(url); res(cv);
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);res(null);};
+    img.src=url;
+  });
 }
+function onFiles(e){
+  const files=Array.from(e.target.files||[]); e.target.value='';
+  if(!files.length) return;
+  S.queue=files;
+  (async()=>{ if(S.pending){ try{ await S.pending; }catch(_){} } nextPhoto(); })();
+}
+$('inCapture').onchange=onFiles;
+$('inGallery').onchange=onFiles;
+async function nextPhoto(){
+  while(S.queue.length){
+    const f=S.queue.shift();
+    S.cur=null; $('scanIt').disabled=true; $('prevAuto').disabled=true;
+    show('prev'); setPrevStatus('busy','사진을 여는 중…'); clearPrev();
+    const cv=await loadFile(f);
+    if(!cv){ toast('이미지를 열 수 없어요'); continue; }
+    await startPreview(cv); return;
+  }
+  finishSession();
+}
+
+/* ---------- preview: where are the corners? -> "Scan it" ---------- */
+const CORNER_NAMES=['좌상','우상','우하','좌하'];
+function setPrevStatus(kind,msg){ $('prevDot').className='dot '+kind; $('prevMsg').textContent=msg; }
+function clearPrev(){ const cv=$('prevCanvas'); cv.width=2; cv.height=2; $('prevSvg').innerHTML=''; }
+function statusFromConf(){
+  const c=S.cur; if(!c) return;
+  if(!c.found) setPrevStatus('bad','문서를 찾지 못했어요 · 모서리 4곳을 직접 맞춰 주세요');
+  else if(c.conf>=0.35) setPrevStatus('ok','문서를 찾았어요 · 모서리를 확인하고 Scan it');
+  else setPrevStatus('warn','대략 찾았어요 · 모서리 위치를 확인해 주세요');
+}
+async function startPreview(photo){
+  const idx=S.retakeIdx; S.retakeIdx=null;
+  const c=S.cur={src:photo,corners:defaultCorners(photo.width,photo.height),conf:0,found:false,rot:0,filter:'magic',idx,base0:null,base:null,norm:null,out:null};
+  $('prevTitle').textContent=S.session.count?`스캔 영역 확인 · ${S.session.count+1}장째`:'스캔 영역 확인';
+  const pc=$('prevCanvas'); pc.width=photo.width; pc.height=photo.height; pc.getContext('2d').drawImage(photo,0,0);
+  $('prevSvg').innerHTML=''; $('scanIt').disabled=true; $('prevAuto').disabled=true;
+  show('prev'); setPrevStatus('busy','문서를 찾는 중…');
+  await nextFrame();
+  if(!CV){
+    setPrevStatus('busy','인식 엔진을 불러오는 중… (처음 한 번만 걸려요)');
+    await Promise.race([loadCV(),new Promise(r=>setTimeout(r,25000))]);
+    await nextFrame();
+    setPrevStatus('busy','문서를 찾는 중…'); await nextFrame();
+  }
+  if(S.cur!==c) return;
+  const det=detectDoc(photo);
+  if(det){ c.corners=det.quad; c.conf=det.conf; c.found=true; }
+  $('scanIt').disabled=false; $('prevAuto').disabled=false;
+  drawPrev(); statusFromConf();
+}
+function drawPrev(){
+  const c=S.cur; if(!c) return;
+  const cv=$('prevCanvas'), svg=$('prevSvg'), W=c.src.width, H=c.src.height;
+  const s=cv.clientWidth/W; if(!(s>0)) return;
+  const r=11/s, fs=12.5/s, P=c.corners;
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`); svg.setAttribute('preserveAspectRatio','none');
+  const poly=P.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+  const cx=P.reduce((a,p)=>a+p[0],0)/4, cy=P.reduce((a,p)=>a+p[1],0)/4;
+  let h=`<path d="M0 0H${W}V${H}H0Z M${P.map(p=>p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' L')} Z" fill-rule="evenodd" fill="rgba(6,7,10,.6)"/>`;
+  h+=`<polygon points="${poly}" fill="none" stroke="#ffb92b" stroke-width="2.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`;
+  P.forEach((p,i)=>{
+    const dx=p[0]-cx, dy=p[1]-cy, L=Math.hypot(dx,dy)||1;
+    let lx=p[0]+dx/L*r*3.4, ly=p[1]+dy/L*r*3.4;
+    const bw=fs*3.3, bh=fs*1.9;
+    lx=Math.min(W-bw/2-2/s,Math.max(bw/2+2/s,lx)); ly=Math.min(H-bh/2-2/s,Math.max(bh/2+2/s,ly));
+    h+=`<rect x="${(lx-bw/2).toFixed(1)}" y="${(ly-bh/2).toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="${(bh/2).toFixed(1)}" fill="rgba(12,13,16,.86)" stroke="#ffb92b" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
+    h+=`<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" fill="#ffb92b" font-size="${fs.toFixed(1)}" font-weight="700" text-anchor="middle" dominant-baseline="central">${CORNER_NAMES[i]}</text>`;
+    h+=`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${(r*1.9).toFixed(1)}" fill="rgba(255,185,43,.16)"/>`;
+    h+=`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${r.toFixed(1)}" fill="#ffb92b" stroke="#22170a" stroke-width="2.5" vector-effect="non-scaling-stroke"/>`;
+  });
+  svg.innerHTML=h;
+}
+/* dragging a corner, with a magnifier so the finger does not hide the spot */
+const drag={i:-1};
+function svgPoint(e){
+  const c=S.cur, rc=$('prevSvg').getBoundingClientRect();
+  return [Math.min(c.src.width,Math.max(0,(e.clientX-rc.left)/rc.width*c.src.width)),
+          Math.min(c.src.height,Math.max(0,(e.clientY-rc.top)/rc.height*c.src.height))];
+}
+function updateLoupe(e,pt){
+  const c=S.cur, lp=$('loupe'), cv=$('loupeCv'), x=cv.getContext('2d');
+  const s=$('prevCanvas').clientWidth/c.src.width, half=(cv.width/2/4)/s;
+  x.clearRect(0,0,cv.width,cv.height);
+  x.drawImage(c.src,pt[0]-half,pt[1]-half,half*2,half*2,0,0,cv.width,cv.height);
+  x.strokeStyle='rgba(255,185,43,.95)'; x.lineWidth=1.5;
+  x.beginPath(); x.moveTo(cv.width/2,0); x.lineTo(cv.width/2,cv.height); x.moveTo(0,cv.height/2); x.lineTo(cv.width,cv.height/2); x.stroke();
+  const st=$('prevStage').getBoundingClientRect();
+  lp.classList.toggle('right',(e.clientX-st.left)<st.width/2);
+  lp.classList.add('show');
+}
+(function(){
+  const svg=$('prevSvg');
+  svg.addEventListener('pointerdown',e=>{
+    const c=S.cur; if(!c||$('scanIt').disabled) return;
+    const rc=svg.getBoundingClientRect(); let best=-1,bd=48;
+    c.corners.forEach((p,i)=>{
+      const d=Math.hypot(rc.left+p[0]/c.src.width*rc.width-e.clientX, rc.top+p[1]/c.src.height*rc.height-e.clientY);
+      if(d<bd){bd=d;best=i;}
+    });
+    if(best<0) return;
+    e.preventDefault(); drag.i=best; svg.setPointerCapture(e.pointerId);
+    updateLoupe(e,c.corners[best]);
+  });
+  svg.addEventListener('pointermove',e=>{
+    if(drag.i<0||!S.cur) return;
+    const pt=svgPoint(e); S.cur.corners[drag.i]=pt; drawPrev(); updateLoupe(e,pt);
+  });
+  const end=()=>{ if(drag.i<0) return; drag.i=-1; $('loupe').classList.remove('show'); if(S.cur){ S.cur.found=true; S.cur.conf=Math.max(S.cur.conf,0.5); setPrevStatus('ok','모서리를 조정했어요 · Scan it을 눌러 스캔하세요'); } };
+  svg.addEventListener('pointerup',end); svg.addEventListener('pointercancel',end);
+})();
+window.addEventListener('resize',()=>{ if($('screen-prev').classList.contains('active')) drawPrev(); });
+$('prevAuto').onclick=async()=>{
+  const c=S.cur; if(!c) return;
+  setPrevStatus('busy','문서를 다시 찾는 중…'); await nextFrame();
+  const det=detectDoc(c.src);
+  if(det){ c.corners=det.quad; c.conf=det.conf; c.found=true; } else { c.found=false; c.conf=0; c.corners=defaultCorners(c.src.width,c.src.height); }
+  drawPrev(); statusFromConf();
+};
+$('prevFull').onclick=()=>{ const c=S.cur; if(!c) return; c.corners=[[0,0],[c.src.width,0],[c.src.width,c.src.height],[0,c.src.height]]; c.found=true; c.conf=0.5; drawPrev(); setPrevStatus('ok','전체 프레임으로 맞췄어요'); };
+$('prevRetake').onclick=()=>{ S.retakeIdx=S.cur?S.cur.idx:null; $('inCapture').click(); };
+$('prevClose').onclick=()=>finishSession();
+
+/* ---------- Scan it -> result ---------- */
+function setBusy(v,msg){ if(msg) $('busyMsg').textContent=msg; $('busy').classList.toggle('show',v); }
+$('scanIt').onclick=async()=>{
+  const c=S.cur; if(!c||!c.corners) return;
+  const rc=$('resCanvas'); rc.width=2; rc.height=2;
+  show('res'); setBusy(true,'스캔하는 중…'); await nextFrame();
+  c.base0=warpAny(c.src,c.corners); c.rot=0;
+  await rebuild();
+};
 async function rebuild(){
-  const c=S.cur; $('busyMsg').textContent='문서를 보정하는 중…'; setBusy(true); await nextFrame();
+  const c=S.cur; if(!c) return;
+  setBusy(true,'보정하는 중…'); await nextFrame();
   c.base=rotateCanvas(c.base0,c.rot);
-  c.norm=normalize(c.base);
+  c.norm=flattenAny(c.base);
   buildFilterThumbs(); renderResult(); setBusy(false);
 }
 function buildFilterThumbs(){
   const c=S.cur, row=$('filtersRow');
-  const mw=96, mh=Math.max(1,Math.round(c.base.height*mw/c.base.width));
+  const mw=120, mh=Math.max(1,Math.round(c.base.height*mw/c.base.width));
   const mini=document.createElement('canvas'); mini.width=mw;mini.height=mh;
   mini.getContext('2d').drawImage(c.base,0,0,mw,mh);
-  const mnorm=normalize(mini);
+  const mnorm=flattenAny(mini);
   row.innerHTML='';
   FILTERS.forEach(([key,label])=>{
     const el=document.createElement('div'); el.className='fopt'+(key===c.filter?' active':''); el.dataset.k=key;
     const cv=document.createElement('canvas'); cv.width=mw;cv.height=60;
-    const t=applyFilter(mini,mnorm,key);
+    const t=filterAny(mini,mnorm,key);
     const cx=cv.getContext('2d'); cx.fillStyle='#fff'; cx.fillRect(0,0,mw,60);
     cx.drawImage(t,0,0,t.width,Math.min(t.height,60),0,0,mw,60);
     const sp=document.createElement('span'); sp.textContent=label;
     el.append(cv,sp);
     el.onclick=async()=>{
       c.filter=key; row.querySelectorAll('.fopt').forEach(o=>o.classList.toggle('active',o===el));
-      setBusy(true); await nextFrame(); renderResult(); setBusy(false);
+      setBusy(true,'적용하는 중…'); await nextFrame(); renderResult(); setBusy(false);
     };
     row.appendChild(el);
   });
 }
 function renderResult(){
   const c=S.cur;
-  c.out=applyFilter(c.base,c.norm,c.filter);
+  c.out=filterAny(c.base,c.norm,c.filter);
   const rc=$('resCanvas'); rc.width=c.out.width; rc.height=c.out.height;
   rc.getContext('2d').drawImage(c.out,0,0);
 }
-$('toolRotL').onclick=()=>{ if(S.cur){S.cur.rot-=90;rebuild();} };
-$('toolRotR').onclick=()=>{ if(S.cur){S.cur.rot+=90;rebuild();} };
-$('resBack').onclick=()=>{
-  S.cur=null; S.queue=[];
-  if(S.from==='cam') show('cam'); else leaveScanFlow();
-};
+$('toolRotL').onclick=()=>{ if(S.cur&&S.cur.base0){S.cur.rot-=90;rebuild();} };
+$('toolRotR').onclick=()=>{ if(S.cur&&S.cur.base0){S.cur.rot+=90;rebuild();} };
+function backToPreview(){ if(!S.cur) return; show('prev'); requestAnimationFrame(drawPrev); }
+$('toolCrop').onclick=backToPreview;
+$('resBack').onclick=backToPreview;
 
-function addCurToBatch(){
-  const c=S.cur; if(!c||!c.out) return false;
-  const t=document.createElement('canvas'), k=360/c.out.width;
-  t.width=360; t.height=Math.max(1,Math.round(c.out.height*k));
-  t.getContext('2d').drawImage(c.out,0,0,t.width,t.height);
-  S.batch.push({canvas:c.out,thumb:t.toDataURL('image/jpeg',0.75)});
-  S.cur=null; return true;
+/* ---------- saving: every finished page is stored right away ---------- */
+function thumbFromCanvas(cv){
+  const t=document.createElement('canvas'), k=360/cv.width;
+  t.width=360; t.height=Math.max(1,Math.round(cv.height*k));
+  t.getContext('2d').drawImage(cv,0,0,t.width,t.height);
+  return t.toDataURL('image/jpeg',0.75);
 }
-$('addNext').onclick=async()=>{
-  if(!addCurToBatch()) return;
-  toast(`${S.batch.length}장째 추가했어요`);
-  if(S.queue.length) await nextFromQueue(); else show('cam');
+function commitCur(){
+  const c=S.cur; if(!c||!c.out) return Promise.resolve();
+  if(c.idx==null&&!c.counted){ c.counted=true; S.session.count++; }   // count right away so the next preview can say "2장째"
+  const p=(async()=>{
+    const blob=await toBlob(c.out,'image/jpeg',0.92);
+    let d=S.docs.find(x=>x.id===S.session.docId);
+    if(!d){
+      const now=Date.now();
+      d={id:'d'+now.toString(36)+Math.random().toString(36).slice(2,6),name:defaultName(now),createdAt:now,pages:[],thumb:'',size:0};
+      S.docs.push(d); S.session.docId=d.id;
+    }
+    if(c.idx!=null&&d.pages[c.idx]){ d.size+=blob.size-d.pages[c.idx].size; d.pages[c.idx]=blob; }
+    else{ d.pages.push(blob); d.size+=blob.size; c.idx=d.pages.length-1; }
+    if(c.idx===0||!d.thumb) d.thumb=thumbFromCanvas(c.out);
+    await DB.put(d);
+    if(!DB.db&&!S.warnedMem){ S.warnedMem=true; setTimeout(()=>toast('이 브라우저에선 저장 공간을 쓸 수 없어 창을 닫으면 사라져요'),2400); }
+  })();
+  S.pending=p; return p;
+}
+$('addNext').onclick=()=>{
+  const c=S.cur; if(!c||!c.out) return;
+  commitCur();                         // keeps running while the camera app is open
+  S.retakeIdx=null;
+  if(S.queue.length) nextPhoto(); else $('inCapture').click();
 };
 $('finishBtn').onclick=async()=>{
-  if(!addCurToBatch()) return;
-  if(S.queue.length){ toast(`${S.batch.length}장째 추가했어요`); await nextFromQueue(); return; }
-  await saveBatch();
+  if(S.cur&&S.cur.out){ setBusy(true,'저장하는 중…'); await commitCur(); setBusy(false); }
+  finishSession();
 };
-$('camDone').onclick=()=>saveBatch();
-$('lastBtn').onclick=()=>{ if(S.batch.length) saveBatch(); };
-
-async function saveBatch(){
-  if(!S.batch.length){ leaveScanFlow(); return; }
-  show('res'); $('busyMsg').textContent='저장하는 중…'; setBusy(true); await nextFrame();
-  const blobs=[]; let size=0;
-  for(const p of S.batch){ const b=await toBlob(p.canvas,'image/jpeg',0.92); blobs.push(b); size+=b.size; }
-  let doc, n=S.batch.length;
-  const ap=S.appendTo&&S.docs.find(d=>d.id===S.appendTo);
-  if(ap){
-    ap.pages=ap.pages.concat(blobs); ap.size+=size; doc=ap;
+function finishSession(){
+  const {docId,returnTo,count}=S.session;
+  S.cur=null; S.queue=[]; S.retakeIdx=null;
+  S.session={docId:null,returnTo:'lib',count:0};
+  if(returnTo==='doc'&&docId&&S.docs.find(d=>d.id===docId)){
+    S.openDoc=docId; renderDoc(); show('doc'); if(count) toast(`${count}장을 추가했어요`);
   }else{
-    const now=Date.now();
-    doc={id:'d'+now.toString(36)+Math.random().toString(36).slice(2,6),name:defaultName(now),createdAt:now,
-         pages:blobs,thumb:S.batch[0].thumb,size};
-    S.docs.push(doc);
+    resetSort(); renderLib(); show('lib'); if(count) toast(`스캔 ${count}장을 저장했어요`);
   }
-  await DB.put(doc);
-  if(!DB.db && !S.warnedMem){ S.warnedMem=true; setTimeout(()=>toast('이 브라우저에선 저장 공간을 쓸 수 없어 창을 닫으면 사라져요'),2400); }
-  S.batch=[]; setBusy(false);
-  const wasAppend=!!ap;
-  S.appendTo=null; S.cur=null; S.queue=[];
-  if(wasAppend){ S.openDoc=doc.id; renderDoc(); show('doc'); toast(`${n}장을 추가했어요`); }
-  else { resetSort(); renderLib(); show('lib'); toast('스캔을 저장했어요'); }
-}
-function leaveScanFlow(){
-  S.batch=[]; S.cur=null; S.queue=[];
-  if(S.appendTo){ const id=S.appendTo; S.appendTo=null; S.openDoc=id; renderDoc(); show('doc'); }
-  else { renderLib(); show('lib'); }
 }
 
-/* ---------- crop adjust ---------- */
-let cropCorners=null;
-function openCrop(){
-  const c=S.cur; if(!c) return;
-  cropCorners=c.corners.map(p=>p.slice());
-  const cv=$('cropCanvas'); cv.width=c.src.width; cv.height=c.src.height;
-  cv.getContext('2d').drawImage(c.src,0,0);
-  show('crop'); drawCrop();
-}
-function drawCrop(){
-  const c=S.cur, svg=$('cropSvg'), W=c.src.width, H=c.src.height;
-  svg.setAttribute('viewBox',`0 0 ${W} ${H}`); svg.setAttribute('preserveAspectRatio','none');
-  const r=Math.max(W,H)*0.012, hit=Math.max(W,H)*0.05;
-  svg.innerHTML=`<polygon class="quadFill" points="${cropCorners.map(p=>p.join(',')).join(' ')}"/>`+
-    cropCorners.map((p,i)=>`<circle class="hv" cx="${p[0]}" cy="${p[1]}" r="${r}"/><circle class="hit" data-i="${i}" cx="${p[0]}" cy="${p[1]}" r="${hit}"/>`).join('');
-  svg.querySelectorAll('.hit').forEach(h=>h.addEventListener('pointerdown',e=>{
-    e.preventDefault(); const i=+h.dataset.i; h.setPointerCapture(e.pointerId);
-    const mv=ev=>{
-      const rc=svg.getBoundingClientRect();
-      const x=(ev.clientX-rc.left)/rc.width*W, y=(ev.clientY-rc.top)/rc.height*H;
-      cropCorners[i]=[Math.max(0,Math.min(W,x)),Math.max(0,Math.min(H,y))];
-      svg.querySelector('polygon').setAttribute('points',cropCorners.map(p=>p.join(',')).join(' '));
-      const hv=svg.querySelectorAll('.hv'); hv[i].setAttribute('cx',cropCorners[i][0]); hv[i].setAttribute('cy',cropCorners[i][1]);
-      h.setAttribute('cx',cropCorners[i][0]); h.setAttribute('cy',cropCorners[i][1]);
-    };
-    const up=()=>{h.removeEventListener('pointermove',mv);h.removeEventListener('pointerup',up);h.removeEventListener('pointercancel',up);};
-    h.addEventListener('pointermove',mv);h.addEventListener('pointerup',up);h.addEventListener('pointercancel',up);
-  }));
-}
-$('toolCrop').onclick=openCrop;
-$('cropAuto').onclick=()=>{
-  const c=S.cur, q=detect(c.src,c.src.width,c.src.height);
-  if(q){cropCorners=q;drawCrop();} else toast('문서를 찾지 못했어요');
-};
-$('cropFull').onclick=()=>{const c=S.cur;cropCorners=[[0,0],[c.src.width,0],[c.src.width,c.src.height],[0,c.src.height]];drawCrop();};
-$('cropCancel').onclick=()=>show('res');
-$('cropOk').onclick=async()=>{
-  const c=S.cur; c.corners=cropCorners.map(p=>p.slice());
-  show('res'); setBusy(true); await nextFrame();
-  c.base0=warp(c.src,c.corners); await rebuild();
-};
+/* ---------- start scanning ---------- */
+function beginSession(docId,returnTo){ S.session={docId,returnTo,count:0}; S.retakeIdx=null; S.cur=null; S.queue=[]; }
+$('scanBtn').onclick=()=>{ beginSession(null,'lib'); $('inCapture').click(); };
+$('importBtn').onclick=()=>{ beginSession(null,'lib'); $('inGallery').click(); };
+$('docAddPage').onclick=()=>{ beginSession(S.openDoc,'doc'); $('inCapture').click(); };
 
 /* ---------- document detail ---------- */
 let pageUrls=[];
@@ -1015,7 +1338,6 @@ async function deleteDoc(d){
   S.openDoc=null; renderLib(); show('lib'); toast('문서를 삭제했어요');
 }
 $('docDelete').onclick=async()=>{ const d=curDoc(); if(d&&confirm(`"${d.name}"을(를) 삭제할까요?`)) await deleteDoc(d); };
-$('docAddPage').onclick=()=>{ S.appendTo=S.openDoc; S.batch=[]; show('cam'); };
 
 /* ---------- export (per document) ---------- */
 function safeName(n){ return n.replace(/[\\/:*?"<>|]+/g,'_').trim()||'scan'; }
@@ -1084,29 +1406,6 @@ async function expImg(ext,type){
 $('expJpg').onclick=()=>expImg('jpg','image/jpeg');
 $('expPng').onclick=()=>expImg('png','image/png');
 
-/* ---------- wiring ---------- */
-$('scanBtn').onclick=()=>{ S.appendTo=null; S.batch=[]; show('cam'); };
-$('importBtn').onclick=()=>{ S.appendTo=null; S.batch=[]; S.galleryFrom='lib'; $('inGallery').click(); };
-$('galleryBtn').onclick=()=>{ S.galleryFrom='cam'; $('inGallery').click(); };
-$('shutterBtn').onclick=shoot;
-$('fbCapture').onclick=()=>$('inCapture').click();
-$('fbRetry').onclick=()=>{S.camOn=false;startCamera();};
-$('camClose').onclick=()=>{
-  if(S.batch.length&&!confirm(`스캔한 ${S.batch.length}장을 저장하지 않고 나갈까요?`)) return;
-  leaveScanFlow();
-};
-$('torchBtn').onclick=async()=>{
-  if(!S.stream) return;
-  S.torch=!S.torch;
-  try{await S.stream.getVideoTracks()[0].applyConstraints({advanced:[{torch:S.torch}]});}catch(e){S.torch=false;}
-  $('torchBtn').classList.toggle('on',S.torch);
-};
-document.addEventListener('visibilitychange',()=>{
-  if(document.hidden&&S.camOn) stopCamera();
-  else if(!document.hidden&&$('screen-cam').classList.contains('active')) startCamera();
-});
-window.addEventListener('pageshow',e=>{ if(e.persisted){ resetSort(); renderLib(); } });
-
 
 /* ---------- install as app (PWA) ---------- */
 const isStandalone=()=>(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
@@ -1142,11 +1441,13 @@ if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
 }
 renderInstall();
 
+
 /* ---------- init: always open on the library, sorted by time ---------- */
 (async()=>{
   resetSort();
   await DB.open();
   await loadLib();
+  setTimeout(()=>loadCV(),600);       // warm up the document-recognition engine in the background
 })();
 </script>
 </body>
