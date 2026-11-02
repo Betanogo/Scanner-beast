@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#0c0d10">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>스캔라인</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -16,40 +16,95 @@
     --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-  html,body{margin:0;height:100%;background:#000;color:var(--text);
-    font-family:'Manrope',system-ui,-apple-system,sans-serif;overflow:hidden;overscroll-behavior:none;}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:'Manrope',system-ui,-apple-system,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;overflow:hidden;overscroll-behavior:none;}
   .mono{font-family:'IBM Plex Mono',monospace;}
-  button{font-family:inherit;}
+  button,select,input{font-family:inherit;}
 
   .screen{position:fixed;inset:0;display:none;flex-direction:column;background:var(--bg);}
   .screen.active{display:flex;}
+
+  /* ===== common ===== */
+  .topbar{padding:calc(var(--sat) + 10px) 14px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px;
+    border-bottom:1px solid var(--line);background:var(--bg);min-height:56px;}
+  .topbar .title{font-weight:800;font-size:16px;letter-spacing:-.01em;}
+  .iconBtn{appearance:none;background:transparent;border:none;color:var(--text);font-size:14px;font-weight:700;
+    padding:8px 6px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;min-width:64px;}
+  .iconBtn.right{justify-content:flex-end;}
+  .btn{appearance:none;border:none;border-radius:12px;padding:14px 18px;font-size:15px;font-weight:800;cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;letter-spacing:-.01em;transition:transform .1s;}
+  .btn:active{transform:scale(.97);}
+  .btn.primary{background:var(--amber);color:var(--amber-ink);}
+  .btn.ghost{background:var(--surface2);color:var(--text);border:1px solid var(--line);}
+  .btn.danger{background:transparent;color:var(--danger);border:1px solid #4a2b28;}
+  .btn.block{width:100%;}
+  .btn.sm{padding:11px 14px;font-size:13.5px;}
+  .btn[disabled]{opacity:.4;pointer-events:none;}
+  .secLabel{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase;}
+
+  /* ===== library (landing) ===== */
+  .libTop{padding:calc(var(--sat) + 14px) 16px 12px;display:flex;align-items:center;justify-content:space-between;
+    border-bottom:1px solid var(--line);}
+  .brand{font-weight:800;font-size:21px;letter-spacing:-.03em;}
+  .brand b{color:var(--amber);font-weight:800;}
+  .sortWrap{position:relative;}
+  .sortWrap select{appearance:none;-webkit-appearance:none;background:var(--surface2);color:var(--text);border:1px solid var(--line);
+    border-radius:999px;padding:9px 32px 9px 14px;font-size:13px;font-weight:700;cursor:pointer;outline:none;}
+  .sortWrap::after{content:"";position:absolute;right:13px;top:50%;width:6px;height:6px;border-right:2px solid var(--dim);
+    border-bottom:2px solid var(--dim);transform:translateY(-70%) rotate(45deg);pointer-events:none;}
+  .sortWrap select:focus-visible{border-color:var(--amber);}
+  #libScroll{flex:1;overflow-y:auto;padding:16px 16px calc(130px + var(--sab));}
+  #libMeta{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--dim);letter-spacing:.06em;margin:0 2px 12px;}
+  #libGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;}
+  .dcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;cursor:pointer;
+    transition:transform .12s,border-color .12s;}
+  .dcard:active{transform:scale(.98);}
+  .dcard:hover{border-color:#464d60;}
+  .dcard .th{position:relative;aspect-ratio:3/4;background:#fff;}
+  .dcard .th img{width:100%;height:100%;object-fit:cover;object-position:top;display:block;}
+  .dcard .pg{position:absolute;right:7px;bottom:7px;background:rgba(12,13,16,.78);color:#fff;font-family:'IBM Plex Mono',monospace;
+    font-size:11px;padding:3px 8px;border-radius:6px;}
+  .dcard .info{padding:10px 12px 12px;}
+  .dcard .nm{font-weight:700;font-size:13.5px;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .dcard .mt{margin-top:4px;font-size:11.5px;color:var(--dim);line-height:1.5;}
+  .empty{display:flex;flex-direction:column;align-items:center;text-align:center;padding:84px 24px 0;gap:14px;}
+  .empty svg{width:64px;height:64px;}
+  .empty h2{margin:0;font-size:17px;font-weight:800;}
+  .empty p{margin:0;color:var(--dim);font-size:13.5px;line-height:1.65;max-width:280px;}
+  .fabWrap{position:fixed;left:0;right:0;bottom:0;padding:34px 16px calc(18px + var(--sab));display:flex;gap:10px;justify-content:center;
+    background:linear-gradient(180deg,transparent,var(--bg) 42%);pointer-events:none;}
+  .fabWrap>*{pointer-events:auto;}
+  .fab{appearance:none;border:none;background:var(--amber);color:var(--amber-ink);font-weight:800;font-size:16px;
+    padding:16px 30px;border-radius:999px;display:inline-flex;align-items:center;gap:10px;cursor:pointer;
+    box-shadow:0 8px 28px rgba(255,185,43,.28);transition:transform .1s;}
+  .fab:active{transform:scale(.96);}
+  .fabSm{appearance:none;border:1px solid var(--line);background:var(--surface2);color:var(--text);font-weight:700;font-size:14px;
+    padding:0 20px;border-radius:999px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;}
 
   /* ===== camera ===== */
   #screen-cam{background:#000;}
   #camStage{flex:1;position:relative;overflow:hidden;background:#000;}
   #video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;}
-  #overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
   .camTop{position:absolute;top:0;left:0;right:0;padding:calc(var(--sat) + 12px) 14px 12px;
     display:flex;justify-content:space-between;align-items:center;
     background:linear-gradient(180deg,rgba(0,0,0,.55),transparent);z-index:3;}
   .chip{appearance:none;border:1px solid rgba(255,255,255,.22);background:rgba(20,22,28,.55);
-    color:#fff;border-radius:999px;padding:8px 14px;font-size:13px;font-weight:700;
+    color:#fff;border-radius:999px;padding:9px 15px;font-size:13px;font-weight:700;
     display:inline-flex;align-items:center;gap:7px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);cursor:pointer;}
   .chip.on{background:var(--amber);border-color:var(--amber);color:var(--amber-ink);}
-  .chip .dot{width:8px;height:8px;border-radius:50%;background:currentColor;opacity:.9;}
+  .chip.accent{background:var(--amber);border-color:var(--amber);color:var(--amber-ink);}
   .camTopGroup{display:flex;gap:8px;}
   #hint{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:3;
     background:rgba(15,17,22,.72);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
     border:1px solid rgba(255,255,255,.14);color:#fff;font-size:13px;font-weight:600;
-    padding:9px 16px;border-radius:999px;white-space:nowrap;overflow:hidden;min-width:210px;text-align:center;}
-  #hint .bar{position:absolute;left:0;bottom:0;height:3px;background:var(--amber);width:0;transition:width .12s linear;}
-  #hint.found{border-color:rgba(255,185,43,.6);}
+    padding:9px 16px;border-radius:999px;white-space:nowrap;}
   .camBottom{height:calc(116px + var(--sab));padding:0 22px var(--sab);background:#000;
     display:flex;align-items:center;justify-content:space-between;}
   .sideBtn{width:60px;height:60px;border-radius:14px;background:var(--surface2);border:1px solid var(--line);
     color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden;padding:0;}
+  .sideBtn.ph{visibility:hidden;}
   .sideBtn img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;}
-  .sideBtn .badge{position:absolute;right:-2px;top:-2px;background:var(--amber);color:var(--amber-ink);
+  .sideBtn .badge{position:absolute;right:3px;top:3px;background:var(--amber);color:var(--amber-ink);
     font-family:'IBM Plex Mono';font-weight:600;font-size:11px;min-width:20px;height:20px;border-radius:10px;
     display:flex;align-items:center;justify-content:center;padding:0 5px;z-index:2;}
   .shutter{width:78px;height:78px;border-radius:50%;border:4px solid #fff;background:transparent;padding:5px;cursor:pointer;}
@@ -63,23 +118,6 @@
   #camFallback.show{display:flex;}
   #camFallback h2{margin:0;font-size:18px;}
   #camFallback p{margin:0;color:var(--dim);font-size:13.5px;line-height:1.6;max-width:320px;}
-
-  /* ===== common ===== */
-  .topbar{padding:calc(var(--sat) + 10px) 14px 10px;display:flex;align-items:center;justify-content:space-between;
-    border-bottom:1px solid var(--line);background:var(--bg);min-height:56px;}
-  .topbar .title{font-weight:800;font-size:16px;letter-spacing:-.01em;}
-  .iconBtn{appearance:none;background:transparent;border:none;color:var(--text);font-size:14px;font-weight:700;
-    padding:8px 6px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;min-width:64px;}
-  .iconBtn.right{justify-content:flex-end;}
-  .btn{appearance:none;border:none;border-radius:12px;padding:14px 18px;font-size:15px;font-weight:800;cursor:pointer;
-    display:inline-flex;align-items:center;justify-content:center;gap:8px;letter-spacing:-.01em;transition:transform .1s;}
-  .btn:active{transform:scale(.97);}
-  .btn.primary{background:var(--amber);color:var(--amber-ink);}
-  .btn.ghost{background:var(--surface2);color:var(--text);border:1px solid var(--line);}
-  .btn.block{width:100%;}
-  .btn.sm{padding:11px 14px;font-size:13.5px;}
-  .btn[disabled]{opacity:.4;pointer-events:none;}
-  .secLabel{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase;}
 
   /* ===== result ===== */
   #resWrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:14px;position:relative;
@@ -112,59 +150,94 @@
   .hv{fill:var(--amber);stroke:#22170a;stroke-width:3;vector-effect:non-scaling-stroke;}
   .hit{fill:transparent;cursor:grab;}
 
-  /* ===== pages ===== */
-  #pagesGrid{flex:1;overflow-y:auto;padding:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;align-content:start;}
+  /* ===== document detail ===== */
+  .nameInput{flex:1;min-width:0;background:transparent;border:1px solid transparent;border-radius:8px;color:var(--text);
+    font-size:16px;font-weight:800;text-align:center;padding:7px 8px;outline:none;letter-spacing:-.01em;}
+  .nameInput:focus{border-color:var(--amber);background:var(--surface);}
+  #docMeta{padding:10px 16px 0;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--dim);letter-spacing:.05em;}
+  #pagesGrid{flex:1;overflow-y:auto;padding:12px 14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;align-content:start;}
   .pcard{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface);}
-  .pcard img{width:100%;aspect-ratio:3/4;object-fit:contain;background:#fff;display:block;}
+  .pcard img{width:100%;aspect-ratio:3/4;object-fit:contain;background:#fff;display:block;cursor:zoom-in;}
   .pcard .n{position:absolute;left:6px;top:6px;background:rgba(0,0,0,.65);font-family:'IBM Plex Mono';font-size:11px;padding:2px 7px;border-radius:5px;}
-  .pcard .x{position:absolute;right:6px;top:6px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.7);
+  .pcard .x{position:absolute;right:6px;top:6px;width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,.7);
     color:var(--danger);border:none;font-size:15px;cursor:pointer;line-height:1;}
   .pcard .mv{display:flex;border-top:1px solid var(--line);}
-  .pcard .mv button{flex:1;background:var(--surface2);border:none;color:var(--text);padding:8px 0;font-size:13px;cursor:pointer;}
+  .pcard .mv button{flex:1;background:var(--surface2);border:none;color:var(--text);padding:9px 0;font-size:13px;cursor:pointer;}
   .pcard .mv button+button{border-left:1px solid var(--line);}
-  .emptyPages{grid-column:1/-1;text-align:center;color:var(--dim);padding:60px 20px;font-size:14px;line-height:1.7;}
   .exportBar{padding:12px 14px calc(14px + var(--sab));background:var(--surface);border-top:1px solid var(--line);display:flex;flex-direction:column;gap:10px;}
   .exportBtns{display:flex;gap:8px;}
   .exportBtns .btn{flex:1;}
+  .rowBtns{display:flex;gap:8px;}
+  .rowBtns .btn{flex:1;}
+
+  #viewer{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.94);display:none;align-items:center;justify-content:center;padding:20px;}
+  #viewer.show{display:flex;}
+  #viewer img{max-width:100%;max-height:100%;background:#fff;}
 
   #toast{position:fixed;left:50%;top:calc(var(--sat) + 70px);transform:translateX(-50%) translateY(-8px);background:rgba(33,37,45,.96);
     border:1px solid var(--line);padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;
     transition:.2s;z-index:99;max-width:88vw;text-align:center;}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   input[type=file]{display:none;}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
 </style>
 </head>
 <body>
 
+<!-- ============ LIBRARY (landing) ============ -->
+<section id="screen-lib" class="screen active">
+  <div class="libTop">
+    <div class="brand">스캔<b>라인</b></div>
+    <label class="sortWrap">
+      <select id="sortSel" autocomplete="off" aria-label="정렬">
+        <option value="time">시간순</option>
+        <option value="name">이름순</option>
+        <option value="size">크기순</option>
+      </select>
+    </label>
+  </div>
+  <div id="libScroll">
+    <div id="libMeta"></div>
+    <div id="libGrid"></div>
+  </div>
+  <div class="fabWrap">
+    <button class="fabSm" id="importBtn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 8"/></svg>가져오기
+    </button>
+    <button class="fab" id="scanBtn">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><line x1="4" y1="12" x2="20" y2="12"/></svg>스캔
+    </button>
+  </div>
+</section>
+
 <!-- ============ CAMERA ============ -->
-<section id="screen-cam" class="screen active">
+<section id="screen-cam" class="screen">
   <div id="camStage">
     <video id="video" playsinline muted autoplay></video>
-    <canvas id="overlay"></canvas>
     <div id="flashFx"></div>
     <div class="camTop">
-      <button class="chip on" id="autoBtn"><span class="dot"></span><span id="autoLabel">자동 촬영</span></button>
+      <button class="chip" id="camClose">✕ 닫기</button>
       <div class="camTopGroup">
         <button class="chip" id="torchBtn" style="display:none">⚡ 플래시</button>
+        <button class="chip accent" id="camDone" style="display:none">완료 · 저장</button>
       </div>
     </div>
-    <div id="hint">문서를 화면에 비춰주세요<div class="bar" id="hintBar"></div></div>
+    <div id="hint">문서 전체가 보이게 찍으세요 · 찍은 뒤 자동으로 크롭돼요</div>
     <div id="camFallback">
       <h2>실시간 카메라를 쓸 수 없어요</h2>
-      <p id="fbMsg">브라우저에서 카메라 권한이 거부됐거나, 보안 연결(https)이 아니에요. 아래 버튼으로 카메라 앱에서 촬영해도 자동으로 문서를 인식해요.</p>
+      <p id="fbMsg">카메라 권한이 거부됐거나 보안 연결(https)이 아니에요. 아래 버튼으로 카메라 앱에서 촬영해도 찍은 뒤 문서를 자동으로 찾아요.</p>
       <button class="btn primary" id="fbCapture">📷 카메라 앱으로 촬영</button>
       <button class="btn ghost" id="fbRetry">카메라 다시 시도</button>
     </div>
   </div>
   <div class="camBottom">
-    <button class="sideBtn" id="galleryBtn" aria-label="갤러리">
+    <button class="sideBtn" id="galleryBtn" aria-label="갤러리에서 가져오기">
       <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 8"/></svg>
     </button>
     <button class="shutter" id="shutterBtn" aria-label="촬영"><i></i></button>
-    <button class="sideBtn" id="doneBtn" aria-label="완료">
-      <img id="lastThumb" alt="" style="display:none">
-      <span id="doneEmpty" style="font-size:12px;font-weight:700;color:var(--dim)">완료</span>
-      <span class="badge" id="camBadge" style="display:none">0</span>
+    <button class="sideBtn ph" id="lastBtn" aria-label="촬영한 페이지">
+      <img id="lastThumb" alt="">
+      <span class="badge" id="camBadge">0</span>
     </button>
   </div>
 </section>
@@ -178,7 +251,7 @@
   </div>
   <div id="resWrap">
     <canvas id="resCanvas"></canvas>
-    <div id="busy"><div class="spin"></div><div>문서를 보정하는 중…</div></div>
+    <div id="busy"><div class="spin"></div><div id="busyMsg">문서를 찾는 중…</div></div>
   </div>
   <div class="toolsRow">
     <button class="tool" id="toolCrop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14"/></svg>크롭 조정</button>
@@ -206,13 +279,14 @@
   </div>
 </section>
 
-<!-- ============ PAGES / EXPORT ============ -->
-<section id="screen-pages" class="screen">
+<!-- ============ DOCUMENT DETAIL ============ -->
+<section id="screen-doc" class="screen">
   <div class="topbar">
-    <button class="iconBtn" id="pagesBack">← 스캔</button>
-    <div class="title">저장 <span class="mono" style="color:var(--dim);font-size:12px" id="pagesCount"></span></div>
-    <span style="min-width:64px"></span>
+    <button class="iconBtn" id="docBack">← 목록</button>
+    <input class="nameInput" id="docName" maxlength="60" aria-label="문서 이름">
+    <button class="iconBtn right" id="docDelete" style="color:var(--danger)">삭제</button>
   </div>
+  <div id="docMeta"></div>
   <div id="pagesGrid"></div>
   <div class="exportBar">
     <div class="secLabel">내보내기 형식</div>
@@ -221,10 +295,11 @@
       <button class="btn ghost sm" id="expJpg">JPG</button>
       <button class="btn ghost sm" id="expPng">PNG</button>
     </div>
-    <button class="btn ghost sm block" id="pagesMore">＋ 더 스캔하기</button>
+    <button class="btn ghost sm block" id="docAddPage">＋ 이 문서에 페이지 추가</button>
   </div>
 </section>
 
+<div id="viewer"><img id="viewerImg" alt=""></div>
 <div id="toast"></div>
 <input type="file" id="inCapture" accept="image/*" capture="environment">
 <input type="file" id="inGallery" accept="image/*" multiple>
@@ -292,12 +367,11 @@ function polyArea(p){
 function orderQuad(q){
   const cx=q.reduce((s,p)=>s+p[0],0)/4, cy=q.reduce((s,p)=>s+p[1],0)/4;
   const s=q.slice().sort((a,b)=>Math.atan2(a[1]-cy,a[0]-cx)-Math.atan2(b[1]-cy,b[0]-cx));
-  // rotate so first = top-left (min x+y)
   let k=0,m=1e18;
   for(let i=0;i<4;i++){const v=s[i][0]+s[i][1]; if(v<m){m=v;k=i;}}
   return [s[k],s[(k+1)%4],s[(k+2)%4],s[(k+3)%4]];
 }
-function quadFromPoints(pts){ // pts: flat [x,y,x,y...]
+function quadFromPoints(pts){
   let best=null,bestA=0;
   const n=pts.length/2;
   for(let deg=0;deg<90;deg+=10){
@@ -315,7 +389,6 @@ function quadFromPoints(pts){ // pts: flat [x,y,x,y...]
   return {q:orderQuad(best),area:bestA};
 }
 function quadOk(q,w,h){
-  // convex + angles + min side
   let sign=0;
   for(let i=0;i<4;i++){
     const a=q[i],b=q[(i+1)%4],c=q[(i+2)%4];
@@ -361,7 +434,6 @@ function findBestQuad(mask,w,h,weight){
   }
   return best?{q:best,score:bestScore}:null;
 }
-// gray: Uint8Array(w*h) -> quad [[x,y]x4] in (w,h) coords or null
 function detectFromGray(gray,w,h){
   const bl=boxBlur(gray,w,h,2);
   const t=otsu(bl), N=w*h;
@@ -378,22 +450,107 @@ function detectFromGray(gray,w,h){
    App
    ===================================================================== */
 const $=id=>document.getElementById(id);
-const video=$('video'), overlay=$('overlay'), octx=overlay.getContext('2d');
+const video=$('video');
 const detCv=document.createElement('canvas'), detCtx=detCv.getContext('2d',{willReadFrequently:true});
 
 const S={
-  pages:[], cur:null, queue:[], stream:null, camOn:false,
-  auto:true, torch:false, track:null, miss:0, stable:0, lastDet:0, cooldown:0,
+  docs:[],            // library records (without nothing hidden; blobs live in each record)
+  sort:'time',        // always starts as time order on every launch
+  batch:[],           // [{canvas,thumb}] pages scanned in the current session
+  appendTo:null,      // doc id when adding pages to an existing doc
+  cur:null, queue:[], from:'cam',
+  stream:null, camOn:false, torch:false,
+  openDoc:null,
 };
-const STABLE_NEED=9;
 
-function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),2000);}
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),2200);}
 function show(name){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   $('screen-'+name).classList.add('active');
   if(name==='cam') startCamera(); else stopCamera();
 }
 const nextFrame=()=>new Promise(r=>requestAnimationFrame(()=>setTimeout(r,16)));
+const pad=n=>String(n).padStart(2,'0');
+function fmtSize(b){ if(b<1024) return b+' B'; if(b<1048576) return (b/1024).toFixed(0)+' KB'; return (b/1048576).toFixed(1)+' MB'; }
+function fmtDate(t){ const d=new Date(t); return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function defaultName(t){ const d=new Date(t); return `스캔 ${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+const toBlob=(cv,type,q)=>new Promise(r=>cv.toBlob(r,type,q));
+const blobToDataURL=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(b);});
+function blobToCanvas(b){
+  return new Promise(res=>{
+    const url=URL.createObjectURL(b), img=new Image();
+    img.onload=()=>{const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;
+      c.getContext('2d').drawImage(img,0,0);URL.revokeObjectURL(url);res(c);};
+    img.onerror=()=>{URL.revokeObjectURL(url);res(null);};
+    img.src=url;
+  });
+}
+
+/* ---------- storage (IndexedDB, in-memory fallback) ---------- */
+const DB={ db:null, mem:new Map(), ok:true,
+  open(){
+    return new Promise(res=>{
+      try{
+        const r=indexedDB.open('scanline',1);
+        r.onupgradeneeded=()=>r.result.createObjectStore('docs',{keyPath:'id'});
+        r.onsuccess=()=>{DB.db=r.result;res();};
+        r.onerror=()=>{DB.ok=false;res();};
+        r.onblocked=()=>{DB.ok=false;res();};
+      }catch(e){DB.ok=false;res();}
+    });
+  },
+  tx(mode,fn){
+    return new Promise(res=>{
+      if(!DB.db){res(null);return;}
+      try{
+        const t=DB.db.transaction('docs',mode), st=t.objectStore('docs'), rq=fn(st);
+        t.oncomplete=()=>res(rq?rq.result:true);
+        t.onerror=t.onabort=()=>{DB.ok=false;res(null);};
+      }catch(e){DB.ok=false;res(null);}
+    });
+  },
+  async all(){ if(!DB.db) return Array.from(DB.mem.values()); return (await DB.tx('readonly',s=>s.getAll()))||[]; },
+  async put(d){ DB.mem.set(d.id,d); if(DB.db) await DB.tx('readwrite',s=>s.put(d)); },
+  async del(id){ DB.mem.delete(id); if(DB.db) await DB.tx('readwrite',s=>s.delete(id)); },
+};
+
+async function loadLib(){ S.docs=await DB.all(); renderLib(); }
+
+/* ---------- library ---------- */
+function sortedDocs(){
+  const a=S.docs.slice();
+  if(S.sort==='name') a.sort((x,y)=>x.name.localeCompare(y.name,'ko',{numeric:true,sensitivity:'base'}));
+  else if(S.sort==='size') a.sort((x,y)=>y.size-x.size||y.createdAt-x.createdAt);
+  else a.sort((x,y)=>y.createdAt-x.createdAt);
+  return a;
+}
+function esc(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function renderLib(){
+  const g=$('libGrid'), meta=$('libMeta');
+  if(!S.docs.length){
+    meta.textContent='';
+    g.style.display='block';
+    g.innerHTML=`<div class="empty">
+      <svg viewBox="0 0 64 64" fill="none"><rect x="14" y="8" width="36" height="48" rx="4" stroke="#8b92a3" stroke-width="2.5"/>
+      <line x1="21" y1="20" x2="43" y2="20" stroke="#8b92a3" stroke-width="2.5"/><line x1="21" y1="28" x2="43" y2="28" stroke="#8b92a3" stroke-width="2.5"/>
+      <line x1="21" y1="36" x2="34" y2="36" stroke="#8b92a3" stroke-width="2.5"/><rect x="8" y="40" width="48" height="4" rx="2" fill="#ffb92b"/></svg>
+      <h2>아직 스캔한 문서가 없어요</h2>
+      <p>아래 <b>스캔</b> 버튼을 눌러 문서를 찍어 보세요.<br>찍으면 종이 영역을 자동으로 찾아 크롭해요.</p></div>`;
+    return;
+  }
+  g.style.display='';
+  const label={time:'시간순 · 최신 먼저',name:'이름순 · 가나다',size:'크기순 · 큰 것 먼저'}[S.sort];
+  meta.textContent=`${S.docs.length}개 문서 · ${label}`;
+  g.innerHTML=sortedDocs().map(d=>`
+    <div class="dcard" data-id="${d.id}">
+      <div class="th"><img src="${d.thumb}" alt=""><span class="pg">${d.pages.length}p</span></div>
+      <div class="info"><div class="nm">${esc(d.name)}</div>
+      <div class="mt">${fmtDate(d.createdAt)}<br>${fmtSize(d.size)}</div></div>
+    </div>`).join('');
+  g.querySelectorAll('.dcard').forEach(c=>c.onclick=()=>openDocument(c.dataset.id));
+}
+$('sortSel').onchange=e=>{S.sort=e.target.value;renderLib();};
+function resetSort(){ S.sort='time'; $('sortSel').value='time'; }
 
 /* ---------- detection wrapper ---------- */
 function detect(src,sw,sh){
@@ -412,24 +569,26 @@ function defaultCorners(w,h){
   return [[w*m,h*m],[w*(1-m),h*m],[w*(1-m),h*(1-m)],[w*m,h*(1-m)]];
 }
 
-/* ---------- camera ---------- */
+/* ---------- camera (plain preview; document is found after the shot) ---------- */
 async function startCamera(){
+  updateCamUI();
   if(S.camOn) return;
   $('camFallback').classList.remove('show');
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
-    $('fbMsg').textContent='이 환경에서는 실시간 카메라를 사용할 수 없어요(https 연결 필요). 아래 버튼으로 카메라 앱에서 촬영해도 자동으로 문서를 인식해요.';
+    $('fbMsg').textContent='이 환경에서는 실시간 카메라를 사용할 수 없어요(https 연결 필요). 아래 버튼으로 카메라 앱에서 촬영해도 찍은 뒤 문서를 자동으로 찾아요.';
     $('camFallback').classList.add('show'); return;
   }
   try{
     S.stream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});
+      video:{facingMode:{ideal:'environment'},width:{ideal:2560},height:{ideal:1440}},audio:false});
   }catch(e){
     $('fbMsg').textContent='카메라 권한이 거부됐거나 사용할 수 없어요. 브라우저 설정에서 카메라를 허용하거나, 아래 버튼으로 카메라 앱에서 촬영해 주세요.';
     $('camFallback').classList.add('show'); return;
   }
+  if(!$('screen-cam').classList.contains('active')){ S.stream.getTracks().forEach(t=>t.stop()); S.stream=null; return; }
   video.srcObject=S.stream;
   try{await video.play();}catch(e){}
-  S.camOn=true; S.track=null; S.miss=0; S.stable=0; S.cooldown=performance.now()+700;
+  S.camOn=true;
   const tr=S.stream.getVideoTracks()[0];
   try{
     const caps=tr.getCapabilities?tr.getCapabilities():{};
@@ -437,89 +596,39 @@ async function startCamera(){
     if(caps.focusMode&&caps.focusMode.includes('continuous')) tr.applyConstraints({advanced:[{focusMode:'continuous'}]}).catch(()=>{});
   }catch(e){}
   S.torch=false; $('torchBtn').classList.remove('on');
-  requestAnimationFrame(loop);
 }
 function stopCamera(){
   S.camOn=false;
   if(S.stream){S.stream.getTracks().forEach(t=>t.stop());S.stream=null;}
   video.srcObject=null;
 }
-function mapInfo(){
-  const cw=overlay.clientWidth, ch=overlay.clientHeight, vw=video.videoWidth||1, vh=video.videoHeight||1;
-  const sc=Math.min(cw/vw,ch/vh);
-  return {sc,ox:(cw-vw*sc)/2,oy:(ch-vh*sc)/2,cw,ch};
+function updateCamUI(){
+  const n=S.batch.length;
+  $('camDone').style.display=n?'':'none';
+  $('lastBtn').classList.toggle('ph',!n);
+  $('camBadge').textContent=n;
+  if(n) $('lastThumb').src=S.batch[n-1].thumb;
 }
-function loop(now){
-  if(!S.camOn) return;
-  now=now||performance.now();
-  if(video.readyState>=2&&video.videoWidth){
-    if(now-S.lastDet>120){
-      S.lastDet=now;
-      track(detect(video,video.videoWidth,video.videoHeight));
-    }
-    drawOverlay();
-    if(S.auto&&S.stable>=STABLE_NEED&&now>S.cooldown){
-      S.cooldown=now+2000; shoot(true);
-    }
-  }
-  requestAnimationFrame(loop);
-}
-function track(c){
-  if(!c){
-    S.miss++;
-    if(S.miss>4){S.track=null;S.stable=0;}
-    return;
-  }
-  S.miss=0;
-  if(!S.track){S.track=c;S.stable=0;return;}
-  const diag=Math.hypot(video.videoWidth,video.videoHeight);
-  let md=0;
-  for(let i=0;i<4;i++) md=Math.max(md,Math.hypot(c[i][0]-S.track[i][0],c[i][1]-S.track[i][1]));
-  const d=md/diag;
-  if(d>0.12){S.track=c;S.stable=0;return;}
-  S.track=S.track.map((p,i)=>[p[0]+(c[i][0]-p[0])*0.5,p[1]+(c[i][1]-p[1])*0.5]);
-  if(d<0.012) S.stable++; else S.stable=Math.max(0,S.stable-2);
-}
-function drawOverlay(){
-  const dpr=window.devicePixelRatio||1, cw=overlay.clientWidth, ch=overlay.clientHeight;
-  if(overlay.width!==Math.round(cw*dpr)||overlay.height!==Math.round(ch*dpr)){
-    overlay.width=Math.round(cw*dpr); overlay.height=Math.round(ch*dpr);
-  }
-  octx.setTransform(dpr,0,0,dpr,0,0);
-  octx.clearRect(0,0,cw,ch);
-  const hint=$('hint'), bar=$('hintBar');
-  if(!S.track){
-    hint.classList.remove('found'); bar.style.width='0';
-    hint.firstChild.nodeValue='문서를 화면에 비춰주세요';
-    return;
-  }
-  const m=mapInfo();
-  const pts=S.track.map(p=>[m.ox+p[0]*m.sc,m.oy+p[1]*m.sc]);
-  const prog=Math.min(1,S.stable/STABLE_NEED);
-  octx.beginPath();
-  pts.forEach((p,i)=>i?octx.lineTo(p[0],p[1]):octx.moveTo(p[0],p[1]));
-  octx.closePath();
-  octx.fillStyle=`rgba(255,185,43,${0.14+prog*0.14})`; octx.fill();
-  octx.lineWidth=3; octx.lineJoin='round';
-  octx.strokeStyle=prog>=1?'#ffffff':'#ffb92b'; octx.stroke();
-  pts.forEach(p=>{octx.beginPath();octx.arc(p[0],p[1],7,0,7);octx.fillStyle='#ffb92b';octx.fill();
-    octx.lineWidth=2;octx.strokeStyle='#22170a';octx.stroke();});
-  hint.classList.add('found');
-  hint.firstChild.nodeValue=S.auto?(prog>=1?'촬영 중…':'문서 감지됨 · 가만히 유지하세요'):'문서 감지됨 · 셔터를 누르세요';
-  bar.style.width=S.auto?(prog*100)+'%':'0';
-}
-function shoot(auto){
+async function shoot(){
   if(!S.camOn||!video.videoWidth) return;
   const w=video.videoWidth,h=video.videoHeight;
   const cv=document.createElement('canvas'); cv.width=w;cv.height=h;
   cv.getContext('2d').drawImage(video,0,0,w,h);
-  let corners=S.track?S.track.map(p=>p.slice()):detect(cv,w,h);
-  const found=!!corners;
-  if(!corners) corners=defaultCorners(w,h);
   $('flashFx').classList.remove('go'); void $('flashFx').offsetWidth; $('flashFx').classList.add('go');
   if(navigator.vibrate) navigator.vibrate(25);
-  if(!found) toast('문서를 찾지 못했어요. 모서리를 직접 조정할 수 있어요');
-  openResult(cv,corners);
+  S.from='cam';
+  await analyzeAndOpen(cv);
+}
+async function analyzeAndOpen(cv){
+  // show the result screen first with a spinner, then find the document in the captured photo
+  S.cur=null; $('busyMsg').textContent='문서를 찾는 중…';
+  show('res'); setBusy(true);
+  const rc=$('resCanvas'); rc.width=cv.width; rc.height=cv.height; rc.getContext('2d').drawImage(cv,0,0);
+  await nextFrame();
+  let c=detect(cv,cv.width,cv.height), found=!!c;
+  if(!c) c=defaultCorners(cv.width,cv.height);
+  if(!found) toast('문서를 찾지 못했어요. "크롭 조정"에서 직접 맞출 수 있어요');
+  await openResult(cv,c);
 }
 
 /* ---------- loading from file ---------- */
@@ -542,19 +651,18 @@ async function nextFromQueue(){
     const f=S.queue.shift();
     const cv=await loadFile(f);
     if(!cv){toast('이미지를 열 수 없어요');continue;}
-    let c=detect(cv,cv.width,cv.height);
-    if(!c){c=defaultCorners(cv.width,cv.height);toast('문서를 찾지 못했어요. 모서리를 직접 조정할 수 있어요');}
-    openResult(cv,c); return true;
+    await analyzeAndOpen(cv); return true;
   }
   return false;
 }
-function pickFiles(e){
+function pickFiles(e,from){
   const files=Array.from(e.target.files||[]); e.target.value='';
   if(!files.length) return;
-  S.queue=files; nextFromQueue();
+  S.queue=files; S.from=from;
+  nextFromQueue();
 }
-$('inCapture').onchange=pickFiles;
-$('inGallery').onchange=pickFiles;
+$('inCapture').onchange=e=>pickFiles(e,'cam');
+$('inGallery').onchange=e=>pickFiles(e,S.galleryFrom||'lib');
 
 /* ---------- perspective warp ---------- */
 function solve8(A,b){
@@ -567,7 +675,7 @@ function solve8(A,b){
   }
   return b.map((v,i)=>v/A[i][i]);
 }
-function homography(dst,src){ // maps dst(x,y)->src(X,Y)
+function homography(dst,src){
   const A=[],b=[];
   for(let i=0;i<4;i++){
     const [x,y]=dst[i],[X,Y]=src[i];
@@ -649,13 +757,12 @@ function applyFilter(base,norm,mode){
     const r=d[i]/255,g=d[i+1]/255,b=d[i+2]/255, l=0.299*r+0.587*g+0.114*b;
     if(mode==='magic'){
       const sat=1.25;
-      const nr=Math.pow(Math.min(1,Math.max(0,l+(r-l)*sat)),1.5);
-      const ng=Math.pow(Math.min(1,Math.max(0,l+(g-l)*sat)),1.5);
-      const nb=Math.pow(Math.min(1,Math.max(0,l+(b-l)*sat)),1.5);
-      d[i]=nr*255;d[i+1]=ng*255;d[i+2]=nb*255;
+      d[i]=Math.pow(Math.min(1,Math.max(0,l+(r-l)*sat)),1.5)*255;
+      d[i+1]=Math.pow(Math.min(1,Math.max(0,l+(g-l)*sat)),1.5)*255;
+      d[i+2]=Math.pow(Math.min(1,Math.max(0,l+(b-l)*sat)),1.5)*255;
     }else if(mode==='bw'){
       const v=smooth(0.5,0.82,l)*255; d[i]=d[i+1]=d[i+2]=v;
-    }else{ // gray
+    }else{
       const v=Math.pow(l,1.4)*255; d[i]=d[i+1]=d[i+2]=v;
     }
   }
@@ -667,19 +774,20 @@ const FILTERS=[['magic','매직 컬러'],['original','원본'],['bw','흑백 문
 function setBusy(v){$('busy').classList.toggle('show',v);}
 async function openResult(srcCv,corners){
   S.cur={src:srcCv,corners,rot:0,filter:'magic',base0:null,base:null,norm:null,out:null};
-  show('res'); setBusy(true); await nextFrame();
+  if(!$('screen-res').classList.contains('active')) show('res');
+  $('busyMsg').textContent='문서를 보정하는 중…'; setBusy(true); await nextFrame();
   S.cur.base0=warp(srcCv,corners);
   await rebuild();
 }
 async function rebuild(){
-  const c=S.cur; setBusy(true); await nextFrame();
+  const c=S.cur; $('busyMsg').textContent='문서를 보정하는 중…'; setBusy(true); await nextFrame();
   c.base=rotateCanvas(c.base0,c.rot);
   c.norm=normalize(c.base);
   buildFilterThumbs(); renderResult(); setBusy(false);
 }
 function buildFilterThumbs(){
   const c=S.cur, row=$('filtersRow');
-  const k=96/c.base.width, mw=96, mh=Math.max(1,Math.round(c.base.height*k));
+  const mw=96, mh=Math.max(1,Math.round(c.base.height*mw/c.base.width));
   const mini=document.createElement('canvas'); mini.width=mw;mini.height=mh;
   mini.getContext('2d').drawImage(c.base,0,0,mw,mh);
   const mnorm=normalize(mini);
@@ -688,10 +796,8 @@ function buildFilterThumbs(){
     const el=document.createElement('div'); el.className='fopt'+(key===c.filter?' active':''); el.dataset.k=key;
     const cv=document.createElement('canvas'); cv.width=mw;cv.height=60;
     const t=applyFilter(mini,mnorm,key);
-    const cx=cv.getContext('2d'); cx.fillStyle='#fff';cx.fillRect(0,0,mw,60);
-    cx.drawImage(t,0,0,mw,60*(mw/mw)*Math.min(1,mh/60)||60,0,0,mw,60);
-    cv.getContext('2d').clearRect(0,0,mw,60);
-    cv.getContext('2d').drawImage(t,0,0,t.width,Math.min(t.height,60),0,0,mw,60);
+    const cx=cv.getContext('2d'); cx.fillStyle='#fff'; cx.fillRect(0,0,mw,60);
+    cx.drawImage(t,0,0,t.width,Math.min(t.height,60),0,0,mw,60);
     const sp=document.createElement('span'); sp.textContent=label;
     el.append(cv,sp);
     el.onclick=async()=>{
@@ -707,39 +813,68 @@ function renderResult(){
   const rc=$('resCanvas'); rc.width=c.out.width; rc.height=c.out.height;
   rc.getContext('2d').drawImage(c.out,0,0);
 }
-$('toolRotL').onclick=()=>{S.cur.rot-=90;rebuild();};
-$('toolRotR').onclick=()=>{S.cur.rot+=90;rebuild();};
-$('resBack').onclick=()=>{S.cur=null;S.queue=[];show('cam');};
+$('toolRotL').onclick=()=>{ if(S.cur){S.cur.rot-=90;rebuild();} };
+$('toolRotR').onclick=()=>{ if(S.cur){S.cur.rot+=90;rebuild();} };
+$('resBack').onclick=()=>{
+  S.cur=null; S.queue=[];
+  if(S.from==='cam') show('cam'); else leaveScanFlow();
+};
 
-function commitPage(){
+function addCurToBatch(){
   const c=S.cur; if(!c||!c.out) return false;
-  const t=document.createElement('canvas'), k=140/c.out.width;
-  t.width=140; t.height=Math.max(1,Math.round(c.out.height*k));
+  const t=document.createElement('canvas'), k=360/c.out.width;
+  t.width=360; t.height=Math.max(1,Math.round(c.out.height*k));
   t.getContext('2d').drawImage(c.out,0,0,t.width,t.height);
-  S.pages.push({canvas:c.out,thumb:t.toDataURL('image/jpeg',0.7)});
-  S.cur=null; updateCamBadge(); return true;
+  S.batch.push({canvas:c.out,thumb:t.toDataURL('image/jpeg',0.75)});
+  S.cur=null; return true;
 }
 $('addNext').onclick=async()=>{
-  if(!commitPage()) return;
-  toast('페이지를 추가했어요');
-  if(S.queue.length){ await nextFromQueue(); } else show('cam');
+  if(!addCurToBatch()) return;
+  toast(`${S.batch.length}장째 추가했어요`);
+  if(S.queue.length) await nextFromQueue(); else show('cam');
 };
-$('finishBtn').onclick=()=>{
-  if(!commitPage()) return;
-  S.queue=[]; renderPages(); show('pages');
+$('finishBtn').onclick=async()=>{
+  if(!addCurToBatch()) return;
+  if(S.queue.length){ toast(`${S.batch.length}장째 추가했어요`); await nextFromQueue(); return; }
+  await saveBatch();
 };
-function updateCamBadge(){
-  const n=S.pages.length;
-  $('camBadge').style.display=n?'':'none'; $('camBadge').textContent=n;
-  const img=$('lastThumb');
-  if(n){img.src=S.pages[n-1].thumb;img.style.display='';$('doneEmpty').style.display='none';}
-  else{img.style.display='none';$('doneEmpty').style.display='';}
+$('camDone').onclick=()=>saveBatch();
+$('lastBtn').onclick=()=>{ if(S.batch.length) saveBatch(); };
+
+async function saveBatch(){
+  if(!S.batch.length){ leaveScanFlow(); return; }
+  show('res'); $('busyMsg').textContent='저장하는 중…'; setBusy(true); await nextFrame();
+  const blobs=[]; let size=0;
+  for(const p of S.batch){ const b=await toBlob(p.canvas,'image/jpeg',0.92); blobs.push(b); size+=b.size; }
+  let doc, n=S.batch.length;
+  const ap=S.appendTo&&S.docs.find(d=>d.id===S.appendTo);
+  if(ap){
+    ap.pages=ap.pages.concat(blobs); ap.size+=size; doc=ap;
+  }else{
+    const now=Date.now();
+    doc={id:'d'+now.toString(36)+Math.random().toString(36).slice(2,6),name:defaultName(now),createdAt:now,
+         pages:blobs,thumb:S.batch[0].thumb,size};
+    S.docs.push(doc);
+  }
+  await DB.put(doc);
+  if(!DB.db && !S.warnedMem){ S.warnedMem=true; setTimeout(()=>toast('이 브라우저에선 저장 공간을 쓸 수 없어 창을 닫으면 사라져요'),2400); }
+  S.batch=[]; setBusy(false);
+  const wasAppend=!!ap;
+  S.appendTo=null; S.cur=null; S.queue=[];
+  if(wasAppend){ S.openDoc=doc.id; renderDoc(); show('doc'); toast(`${n}장을 추가했어요`); }
+  else { resetSort(); renderLib(); show('lib'); toast('스캔을 저장했어요'); }
+}
+function leaveScanFlow(){
+  S.batch=[]; S.cur=null; S.queue=[];
+  if(S.appendTo){ const id=S.appendTo; S.appendTo=null; S.openDoc=id; renderDoc(); show('doc'); }
+  else { renderLib(); show('lib'); }
 }
 
 /* ---------- crop adjust ---------- */
 let cropCorners=null;
 function openCrop(){
-  const c=S.cur; cropCorners=c.corners.map(p=>p.slice());
+  const c=S.cur; if(!c) return;
+  cropCorners=c.corners.map(p=>p.slice());
   const cv=$('cropCanvas'); cv.width=c.src.width; cv.height=c.src.height;
   cv.getContext('2d').drawImage(c.src,0,0);
   show('crop'); drawCrop();
@@ -756,7 +891,6 @@ function drawCrop(){
       const rc=svg.getBoundingClientRect();
       const x=(ev.clientX-rc.left)/rc.width*W, y=(ev.clientY-rc.top)/rc.height*H;
       cropCorners[i]=[Math.max(0,Math.min(W,x)),Math.max(0,Math.min(H,y))];
-      // update in place for smoothness
       svg.querySelector('polygon').setAttribute('points',cropCorners.map(p=>p.join(',')).join(' '));
       const hv=svg.querySelectorAll('.hv'); hv[i].setAttribute('cx',cropCorners[i][0]); hv[i].setAttribute('cy',cropCorners[i][1]);
       h.setAttribute('cx',cropCorners[i][0]); h.setAttribute('cy',cropCorners[i][1]);
@@ -778,70 +912,106 @@ $('cropOk').onclick=async()=>{
   c.base0=warp(c.src,c.corners); await rebuild();
 };
 
-/* ---------- pages + export ---------- */
-function renderPages(){
-  const g=$('pagesGrid'); $('pagesCount').textContent=S.pages.length+'장';
-  if(!S.pages.length){g.innerHTML='<div class="emptyPages">아직 스캔한 페이지가 없어요.<br>아래 버튼으로 문서를 스캔해 보세요.</div>';return;}
-  g.innerHTML=S.pages.map((p,i)=>`
-    <div class="pcard"><span class="n">${i+1}</span><button class="x" data-a="del" data-i="${i}">×</button>
-    <img src="${p.thumb}"><div class="mv"><button data-a="l" data-i="${i}">◀</button><button data-a="r" data-i="${i}">▶</button></div></div>`).join('');
-  g.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+/* ---------- document detail ---------- */
+let pageUrls=[];
+function curDoc(){ return S.docs.find(d=>d.id===S.openDoc); }
+function openDocument(id){ S.openDoc=id; renderDoc(); show('doc'); }
+function renderDoc(){
+  const d=curDoc(); if(!d){ renderLib(); show('lib'); return; }
+  pageUrls.forEach(u=>URL.revokeObjectURL(u));
+  pageUrls=d.pages.map(b=>URL.createObjectURL(b));
+  $('docName').value=d.name;
+  $('docMeta').textContent=`${fmtDate(d.createdAt)} · ${d.pages.length}장 · ${fmtSize(d.size)}`;
+  const g=$('pagesGrid');
+  g.innerHTML=d.pages.map((_,i)=>`
+    <div class="pcard"><span class="n">${i+1}</span><button class="x" data-a="del" data-i="${i}" aria-label="페이지 삭제">×</button>
+    <img src="${pageUrls[i]}" data-i="${i}" alt="${i+1}페이지"><div class="mv"><button data-a="l" data-i="${i}">◀</button><button data-a="r" data-i="${i}">▶</button></div></div>`).join('');
+  g.querySelectorAll('img').forEach(im=>im.onclick=()=>{ $('viewerImg').src=im.src; $('viewer').classList.add('show'); });
+  g.querySelectorAll('button').forEach(b=>b.onclick=async()=>{
     const i=+b.dataset.i,a=b.dataset.a;
-    if(a==='del') S.pages.splice(i,1);
-    else{const j=a==='l'?i-1:i+1; if(j>=0&&j<S.pages.length)[S.pages[i],S.pages[j]]=[S.pages[j],S.pages[i]];}
-    renderPages(); updateCamBadge();
+    if(a==='del'){
+      if(d.pages.length===1){ if(confirm('마지막 페이지예요. 문서를 삭제할까요?')) await deleteDoc(d); return; }
+      d.size-=d.pages[i].size; d.pages.splice(i,1);
+      if(i===0) d.thumb=await makeThumb(d.pages[0]);
+    }else{
+      const j=a==='l'?i-1:i+1; if(j<0||j>=d.pages.length) return;
+      [d.pages[i],d.pages[j]]=[d.pages[j],d.pages[i]];
+      if(i===0||j===0) d.thumb=await makeThumb(d.pages[0]);
+    }
+    await DB.put(d); renderDoc();
   });
 }
-$('doneBtn').onclick=()=>{renderPages();show('pages');};
-$('pagesBack').onclick=()=>show('cam');
-$('pagesMore').onclick=()=>show('cam');
+async function makeThumb(blob){
+  const c=await blobToCanvas(blob), t=document.createElement('canvas'), k=360/c.width;
+  t.width=360; t.height=Math.max(1,Math.round(c.height*k)); t.getContext('2d').drawImage(c,0,0,t.width,t.height);
+  return t.toDataURL('image/jpeg',0.75);
+}
+$('viewer').onclick=()=>$('viewer').classList.remove('show');
+$('docBack').onclick=()=>{ renderLib(); show('lib'); };
+$('docName').onchange=async e=>{
+  const d=curDoc(); if(!d) return;
+  d.name=e.target.value.trim()||defaultName(d.createdAt); e.target.value=d.name;
+  await DB.put(d); toast('이름을 바꿨어요');
+};
+$('docName').onkeydown=e=>{ if(e.key==='Enter') e.target.blur(); };
+async function deleteDoc(d){
+  await DB.del(d.id); S.docs=S.docs.filter(x=>x.id!==d.id);
+  S.openDoc=null; renderLib(); show('lib'); toast('문서를 삭제했어요');
+}
+$('docDelete').onclick=async()=>{ const d=curDoc(); if(d&&confirm(`"${d.name}"을(를) 삭제할까요?`)) await deleteDoc(d); };
+$('docAddPage').onclick=()=>{ S.appendTo=S.openDoc; S.batch=[]; show('cam'); };
 
-function stamp(){const d=new Date(),p=n=>String(n).padStart(2,'0');return `scan_${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;}
+/* ---------- export (per document) ---------- */
+function safeName(n){ return n.replace(/[\\/:*?"<>|]+/g,'_').trim()||'scan'; }
 function save(blob,name){
   const url=URL.createObjectURL(blob),a=document.createElement('a');
   a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),4000);
 }
-const toBlob=(cv,type,q)=>new Promise(r=>cv.toBlob(r,type,q));
-
 $('expPdf').onclick=async()=>{
-  if(!S.pages.length) return toast('먼저 페이지를 스캔하세요');
-  const {jsPDF}=window.jspdf; if(!jsPDF) return toast('PDF 라이브러리를 불러오지 못했어요');
+  const d=curDoc(); if(!d) return;
+  const {jsPDF}=window.jspdf||{}; if(!jsPDF) return toast('PDF 라이브러리를 불러오지 못했어요');
+  toast('PDF를 만드는 중…');
   let pdf;
-  S.pages.forEach((p,i)=>{
-    const w=p.canvas.width,h=p.canvas.height, land=w>h;
-    const W=land?297:297*w/h, H=land?297*h/w:297;
-    const o=land?'l':'p';
-    if(i===0) pdf=new jsPDF({orientation:o,unit:'mm',format:[W,H]}); else pdf.addPage([W,H],o);
-    pdf.addImage(p.canvas.toDataURL('image/jpeg',0.9),'JPEG',0,0,W,H);
-  });
-  pdf.save(stamp()+'.pdf'); toast('PDF로 저장했어요');
+  for(let i=0;i<d.pages.length;i++){
+    const cv=await blobToCanvas(d.pages[i]); if(!cv) continue;
+    const w=cv.width,h=cv.height, land=w>h;
+    const W=land?297:297*w/h, H=land?297*h/w:297, o=land?'l':'p';
+    if(!pdf) pdf=new jsPDF({orientation:o,unit:'mm',format:[W,H]}); else pdf.addPage([W,H],o);
+    pdf.addImage(await blobToDataURL(d.pages[i]),'JPEG',0,0,W,H);
+  }
+  if(!pdf) return toast('내보낼 페이지가 없어요');
+  pdf.save(safeName(d.name)+'.pdf'); toast('PDF로 저장했어요');
 };
 async function expImg(ext,type){
-  if(!S.pages.length) return toast('먼저 페이지를 스캔하세요');
-  const base=stamp();
-  if(S.pages.length===1){
-    save(await toBlob(S.pages[0].canvas,type,0.92),`${base}.${ext}`);
+  const d=curDoc(); if(!d) return;
+  const base=safeName(d.name);
+  const conv=async b=>{
+    if(type==='image/jpeg') return b;
+    const cv=await blobToCanvas(b); return toBlob(cv,type);
+  };
+  if(d.pages.length===1){
+    save(await conv(d.pages[0]),`${base}.${ext}`);
     return toast(ext.toUpperCase()+'로 저장했어요');
   }
   const zip=new JSZip();
-  for(let i=0;i<S.pages.length;i++){
-    zip.file(`${base}_${String(i+1).padStart(2,'0')}.${ext}`,await toBlob(S.pages[i].canvas,type,0.92));
-  }
+  for(let i=0;i<d.pages.length;i++) zip.file(`${base}_${pad(i+1)}.${ext}`,await conv(d.pages[i]));
   save(await zip.generateAsync({type:'blob'}),`${base}_${ext}.zip`);
-  toast(`${ext.toUpperCase()} ${S.pages.length}장을 zip으로 저장했어요`);
+  toast(`${ext.toUpperCase()} ${d.pages.length}장을 zip으로 저장했어요`);
 }
 $('expJpg').onclick=()=>expImg('jpg','image/jpeg');
 $('expPng').onclick=()=>expImg('png','image/png');
 
-/* ---------- camera UI wiring ---------- */
-$('shutterBtn').onclick=()=>shoot(false);
-$('galleryBtn').onclick=()=>$('inGallery').click();
+/* ---------- wiring ---------- */
+$('scanBtn').onclick=()=>{ S.appendTo=null; S.batch=[]; show('cam'); };
+$('importBtn').onclick=()=>{ S.appendTo=null; S.batch=[]; S.galleryFrom='lib'; $('inGallery').click(); };
+$('galleryBtn').onclick=()=>{ S.galleryFrom='cam'; $('inGallery').click(); };
+$('shutterBtn').onclick=shoot;
 $('fbCapture').onclick=()=>$('inCapture').click();
 $('fbRetry').onclick=()=>{S.camOn=false;startCamera();};
-$('autoBtn').onclick=()=>{
-  S.auto=!S.auto; $('autoBtn').classList.toggle('on',S.auto);
-  $('autoLabel').textContent=S.auto?'자동 촬영':'수동'; S.stable=0;
+$('camClose').onclick=()=>{
+  if(S.batch.length&&!confirm(`스캔한 ${S.batch.length}장을 저장하지 않고 나갈까요?`)) return;
+  leaveScanFlow();
 };
 $('torchBtn').onclick=async()=>{
   if(!S.stream) return;
@@ -853,9 +1023,14 @@ document.addEventListener('visibilitychange',()=>{
   if(document.hidden&&S.camOn) stopCamera();
   else if(!document.hidden&&$('screen-cam').classList.contains('active')) startCamera();
 });
+window.addEventListener('pageshow',e=>{ if(e.persisted){ resetSort(); renderLib(); } });
 
-updateCamBadge();
-startCamera();
+/* ---------- init: always open on the library, sorted by time ---------- */
+(async()=>{
+  resetSort();
+  await DB.open();
+  await loadLib();
+})();
 </script>
 </body>
 </html>
